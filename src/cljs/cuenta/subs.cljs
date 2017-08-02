@@ -5,9 +5,14 @@
 (re-frame/reg-sub
   :people
   (fn [db _]
-    (map vector (range) (:people db))))
+    (:people db)))
+
+;(re-frame/reg-sub
+;  :person
+;  (fn [db [_ id]]
+;    (get (:people db) id)))
 
 (re-frame/reg-sub
-  :person
-  (fn [db [_ id]]
-    (get (:people db) id)))
+  :ap-modal
+  (fn [db _]
+    (get db :ap-modal?)))
