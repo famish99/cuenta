@@ -1,4 +1,5 @@
 (ns cuenta.db)
 
 (def default-db
-  {:people [""]})
+  {:people []
+   :ap-modal? false})

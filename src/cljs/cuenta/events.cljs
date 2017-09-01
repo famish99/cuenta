@@ -14,6 +14,16 @@
 
 (re-frame/reg-event-db
  :update-person
- (fn [db [_ id new-name]]
+ (fn [db [_ new-name]]
    (println new-name)
-   (assoc-in db [:people id] new-name)))
+   (assoc db :person-text new-name)))
+
+(re-frame/reg-event-db
+  :add-person
+  (fn [db _]
+    (update db :people conj (:person-text db))))
+
+(re-frame/reg-event-db
+  :ap-modal
+  (fn [db [_ bool]]
+    (assoc db :ap-modal? bool)))
