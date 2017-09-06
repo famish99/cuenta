@@ -7,13 +7,10 @@
             [cuenta.views :as views]
             [cuenta.config :as config]))
 
-
 (defn dev-setup []
   (when config/debug?
     (enable-console-print!)
-    (enable-re-frisk!)
-    (println "dev mode")
-    ))
+    (enable-re-frisk!)))
 
 (defn mount-root []
   (re-frame/clear-subscription-cache!)

@@ -2,4 +2,6 @@
 
 (def default-db
   {:people []
-   :ap-modal? false})
+   :items {}
+   :tax-rate 8.25
+   :owner-matrix {}})

@@ -1,29 +1,42 @@
 (ns cuenta.events
-  (:require [re-frame.core :as re-frame]
+  (:require [clojure.string :refer [blank?]]
+            [re-frame.core :as rf]
             [cuenta.db :as db]))
 
-(re-frame/reg-event-db
+(rf/reg-event-db
  :initialize-db
  (fn [_ _]
    db/default-db))
 
-(re-frame/reg-event-db
- :update-name
- (fn [db [_ new-name]]
-   (assoc db :name new-name)))
+(defn adjust-item-owners
+  [{:keys [people owner-matrix] :as db}]
+  (update db :owner-matrix select-keys people))
 
-(re-frame/reg-event-db
+(rf/reg-event-db
  :update-person
- (fn [db [_ new-name]]
-   (println new-name)
-   (assoc db :person-text new-name)))
+ (fn [db [_ pos new-name]]
+   (->> (assoc (:people db) pos new-name)
+        (filterv (complement blank?))
+        (assoc db :people)
+        (adjust-item-owners))))
 
-(re-frame/reg-event-db
-  :add-person
-  (fn [db _]
-    (update db :people conj (:person-text db))))
+(rf/reg-event-db
+  :update-item
+  (fn [db [_ new-value & path]]
+    (let [result
+          (->> new-value
+               (assoc-in (:items db) path)
+               (filter (fn [[k v]] (not (blank? (:item-name v)))))
+               (into {})
+               (assoc db :items))]
+      result)))
 
-(re-frame/reg-event-db
-  :ap-modal
-  (fn [db [_ bool]]
-    (assoc db :ap-modal? bool)))
+(rf/reg-event-db
+  :update-owner
+  (fn [db [_ new-value p-pos i-pos]]
+    (assoc-in db [:owner-matrix (get-in db [:people p-pos]) i-pos] new-value)))
+
+(rf/reg-event-db
+  :update-tax-rate
+  (fn [db [_ new-value]]
+    (assoc db :tax-rate new-value)))
