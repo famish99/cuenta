@@ -1,7 +1,13 @@
 (ns cuenta.subs
   (:require-macros [reagent.ratom :refer [reaction]])
   (:require [clojure.string :refer [blank?]]
-            [re-frame.core :as rf]))
+            [re-frame.core :as rf]
+            [cuenta.calc :as calc]))
+
+(rf/reg-sub
+  :route
+  (fn [db _]
+    (:route db)))
 
 (rf/reg-sub
   :people
@@ -18,6 +24,7 @@
   (fn [db _]
     (:tax-rate db)))
 
+
 (rf/reg-sub
   :tax-rate-field
   :<- [:tax-rate]
@@ -29,13 +36,13 @@
      :value tax-rate}))
 
 (rf/reg-sub
-  :num-new-people
+  :count-new-people
   :<- [:people]
   (fn [people _]
     (range (inc (count people)))))
 
 (rf/reg-sub
-  :num-existing-people
+  :count-existing-people
   :<- [:people]
   (fn [people _]
     (range (count people))))
@@ -52,13 +59,13 @@
     (:items db)))
 
 (rf/reg-sub
-  :num-new-items
+  :count-new-items
   :<- [:items]
   (fn [items _]
     (range (inc (count items)))))
 
 (rf/reg-sub
-  :num-existing-items
+  :count-existing-items
   :<- [:items]
   (fn [items _]
     (range (count items))))
@@ -105,30 +112,39 @@
   :item-owned?
   :<- [:people]
   :<- [:owners]
-  (fn [[people owners] [_ person-id item-id]]
-    (get-in owners [(get people person-id) item-id] false)))
+  (fn [[people owners] [_ person-name item-id]]
+    (get-in owners [person-name item-id] false)))
 
-(defn item-cost-per-person
-  [owners tax-rate]
-  (fn [[key {:keys [item-price item-quantity item-taxable]
-             :or {item-quantity 1 item-taxable true}}]]
-    [key (* item-price
-            (if item-taxable (+ 1 (/ tax-rate 100)) 1)
-            (/ (int item-quantity)
-               (max (reduce + (map #(get % key) (vals owners)))
-                    1)))])) ; prevent divide by zero
+(rf/reg-sub
+  :item-cost-map
+  :<- [:items]
+  (fn [items _]
+    (map (fn [[k v]] [k (dissoc v :item-name)]) items)))
 
-(defn calc-owed
-  [[items owners tax-rate] [_ person-name]]
-  (->> items
-       (map (item-cost-per-person owners tax-rate))
-       (filter (fn [[k _]] (get (get owners person-name) k)))
-       (map second)
-       (reduce +)))
+(rf/reg-sub
+  :item-costs
+  :<- [:item-cost-map]
+  :<- [:owners]
+  :<- [:tax-rate]
+  calc/calc-item-cost)
 
 (rf/reg-sub
   :owed
-  :<- [:items]
+  :<- [:item-costs]
   :<- [:owners]
-  :<- [:tax-rate]
-  calc-owed)
+  calc/calc-owed)
+
+(rf/reg-sub
+  :owed-matrix
+  (fn [db _]
+    (:owed-matrix db)))
+
+(rf/reg-sub
+  :owed-cols
+  :<- [:owed-matrix]
+  (fn [owed-matrix _]
+    (->> owed-matrix
+         (vals)
+         (map keys)
+         (flatten)
+         (into #{}))))
