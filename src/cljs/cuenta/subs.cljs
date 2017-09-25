@@ -4,6 +4,11 @@
             [re-frame.core :as rf]))
 
 (rf/reg-sub
+  :route
+  (fn [db _]
+    (:route db)))
+
+(rf/reg-sub
   :people
   (fn [db _]
     (:people db)))
@@ -17,6 +22,7 @@
   :tax-rate
   (fn [db _]
     (:tax-rate db)))
+
 
 (rf/reg-sub
   :tax-rate-field
@@ -132,3 +138,18 @@
   :<- [:owners]
   :<- [:tax-rate]
   calc-owed)
+
+(rf/reg-sub
+  :owed-matrix
+  (fn [db _]
+    (:owed-matrix db)))
+
+(rf/reg-sub
+  :owed-cols
+  :<- [:owed-matrix]
+  (fn [owed-matrix _]
+    (->> owed-matrix
+         (vals)
+         (map keys)
+         (flatten)
+         (into #{}))))

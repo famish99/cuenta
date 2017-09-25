@@ -116,16 +116,60 @@
            [bs/input-group-addon "%"]
            [bs/form-control-feedback]]]]]]]]))
 
-(defn main-panel []
-  [:div
-   [bs/navbar {:fluid true}
-    [bs/navbar-header
-     [bs/navbar-brand
-      [:a "Split da Bill"]]]]
-   [bs/grid {:fluid false}
-    [bs/row
-     [bs/col {:md 6}
-      [people-panel]]]
-    [bs/row
-     [bs/col {:md 12}
-      [items-panel]]]]])
+(defn transaction-view []
+  [bs/grid {:fluid false}
+   [bs/row
+    [bs/col {:md 6}
+     [people-panel]]]
+   [bs/row
+    [bs/col {:md 12}
+     [items-panel]]]])
+
+(defn people-matrix []
+  (let [owed-matrix @(rf/subscribe [:owed-matrix])
+        owed-cols @(rf/subscribe [:owed-cols])]
+    [bs/panel {:header "Debt Matrix"}
+     [bs/table
+      [:thead
+       [:tr
+        [:th "Moocher owes"]
+        (for [creditor-name owed-cols]
+          ^{:key (g-string/format "creditor-header-%s" creditor-name)}
+          [:th creditor-name])
+        ]]
+      [:tbody
+       (for [[debtor-name debts] owed-matrix]
+         ^{:key (g-string/format "debt-row-%s" debtor-name)}
+         [:tr
+          [:td debtor-name]
+          (for [creditor-name owed-cols]
+            ^{:key (g-string/format "%s-owes-%s" debtor-name creditor-name)}
+            [:td
+             (get debts creditor-name "")])])
+       [:tr
+        [:td
+         [bs/button {:bs-style :primary
+                     :on-click #(rf/dispatch [:update-route :transaction])}
+          [bs/glyphicon {:glyph :glyphicon-plus}] "Add Transaction"]]]]]]))
+  
+(defn home []
+  [bs/grid {:fluid false}
+   [bs/row
+    [bs/col {:md 12}
+     [people-matrix]]]])
+
+(def view-map
+  {:home home
+   :transaction transaction-view})
+
+(defn router
+  []
+  (let [route @(rf/subscribe [:route])]
+    [:div
+     [bs/navbar {:fluid true}
+      [bs/navbar-header
+       [bs/navbar-brand
+        [bs/button {:bs-style :link
+                    :on-click #(rf/dispatch [:update-route :home])}
+         "Split da Bill"]]]]
+     [(get view-map route home)]]))

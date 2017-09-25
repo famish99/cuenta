@@ -8,6 +8,11 @@
  (fn [_ _]
    db/default-db))
 
+(rf/reg-event-db
+  :update-route
+  (fn [db [_ new-route]]
+    (assoc db :route new-route)))
+
 (defn adjust-item-owners
   [{:keys [people owner-matrix] :as db}]
   (update db :owner-matrix select-keys people))
