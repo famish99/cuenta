@@ -35,13 +35,13 @@
      :value tax-rate}))
 
 (rf/reg-sub
-  :num-new-people
+  :count-new-people
   :<- [:people]
   (fn [people _]
     (range (inc (count people)))))
 
 (rf/reg-sub
-  :num-existing-people
+  :count-existing-people
   :<- [:people]
   (fn [people _]
     (range (count people))))
@@ -58,13 +58,13 @@
     (:items db)))
 
 (rf/reg-sub
-  :num-new-items
+  :count-new-items
   :<- [:items]
   (fn [items _]
     (range (inc (count items)))))
 
 (rf/reg-sub
-  :num-existing-items
+  :count-existing-items
   :<- [:items]
   (fn [items _]
     (range (count items))))
@@ -111,32 +111,47 @@
   :item-owned?
   :<- [:people]
   :<- [:owners]
-  (fn [[people owners] [_ person-id item-id]]
-    (get-in owners [(get people person-id) item-id] false)))
+  (fn [[people owners] [_ person-name item-id]]
+    (get-in owners [person-name item-id] false)))
 
 (defn item-cost-per-person
   [owners tax-rate]
-  (fn [[key {:keys [item-price item-quantity item-taxable]
-             :or {item-quantity 1 item-taxable true}}]]
-    [key (* item-price
-            (if item-taxable (+ 1 (/ tax-rate 100)) 1)
-            (/ (int item-quantity)
-               (max (reduce + (map #(get % key) (vals owners)))
-                    1)))])) ; prevent divide by zero
+  (fn [[item-key {:keys [item-price item-quantity item-taxable]
+                  :or {item-quantity 1 item-taxable true}}]]
+    [item-key (* item-price
+                 (if item-taxable (+ 1 (/ tax-rate 100)) 1)
+                 (/ (int item-quantity)
+                    (max (reduce + (map #(get % item-key) (vals owners)))
+                         1)))])) ; prevent divide by zero
+
+(rf/reg-sub
+  :item-cost-map
+  :<- [:items]
+  (fn [items _]
+    (map (fn [[k v]] [k (dissoc v :item-name)]) items)))
+
+(defn calc-item-cost
+  [[items owners tax-rate] _]
+  (map (item-cost-per-person owners tax-rate) items))
+
+(rf/reg-sub
+  :item-costs
+  :<- [:item-cost-map]
+  :<- [:owners]
+  :<- [:tax-rate]
+  calc-item-cost)
 
 (defn calc-owed
-  [[items owners tax-rate] [_ person-name]]
-  (->> items
-       (map (item-cost-per-person owners tax-rate))
+  [[costs owners] [_ person-name]]
+  (->> costs
        (filter (fn [[k _]] (get (get owners person-name) k)))
        (map second)
        (reduce +)))
 
 (rf/reg-sub
   :owed
-  :<- [:items]
+  :<- [:item-costs]
   :<- [:owners]
-  :<- [:tax-rate]
   calc-owed)
 
 (rf/reg-sub

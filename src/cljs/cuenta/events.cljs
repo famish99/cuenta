@@ -4,9 +4,9 @@
             [cuenta.db :as db]))
 
 (rf/reg-event-db
- :initialize-db
- (fn [_ _]
-   db/default-db))
+  :initialize-db
+  (fn [_ _]
+    db/default-db))
 
 (rf/reg-event-db
   :update-route
@@ -18,12 +18,19 @@
   (update db :owner-matrix select-keys people))
 
 (rf/reg-event-db
- :update-person
- (fn [db [_ pos new-name]]
-   (->> (assoc (:people db) pos new-name)
-        (filterv (complement blank?))
-        (assoc db :people)
-        (adjust-item-owners))))
+  :update-creditor
+  (fn [db [_ new-value]]
+    (assoc db :transaction-owner new-value)))
+
+(rf/reg-event-db
+  :update-person
+  (fn [db [_ pos new-name]]
+    (->> (assoc (:people db) pos new-name)
+         (filter (complement blank?))
+         (distinct)
+         (vec)
+         (assoc db :people)
+         (adjust-item-owners))))
 
 (rf/reg-event-db
   :update-item
@@ -38,8 +45,8 @@
 
 (rf/reg-event-db
   :update-owner
-  (fn [db [_ new-value p-pos i-pos]]
-    (assoc-in db [:owner-matrix (get-in db [:people p-pos]) i-pos] new-value)))
+  (fn [db [_ new-value person-name i-pos]]
+    (assoc-in db [:owner-matrix person-name i-pos] new-value)))
 
 (rf/reg-event-db
   :update-tax-rate
