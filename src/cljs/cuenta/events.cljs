@@ -1,6 +1,7 @@
 (ns cuenta.events
   (:require [clojure.string :refer [blank?]]
             [re-frame.core :as rf]
+            [cuenta.calc :as calc]
             [cuenta.db :as db]))
 
 (rf/reg-event-db
@@ -52,3 +53,23 @@
   :update-tax-rate
   (fn [db [_ new-value]]
     (assoc db :tax-rate new-value)))
+
+(rf/reg-event-db
+  :update-credit-to
+  (fn [db [_ new-value]]
+    (assoc db :credit-to new-value)))
+
+(rf/reg-event-db
+  :save-transaction
+  (fn [db _]
+    (let [credit-to (or (:credit-to db) (-> db (get :people) (first)))
+          owners (:owner-matrix db)
+          item-costs (calc/calc-item-cost [(:items db) owners (:tax-rate db)])
+          result
+          (->> db
+               (:people)
+               (remove #{credit-to})
+               (map #(vector % (calc/calc-owed [item-costs owners] [_ %])))
+               )]
+      (print result credit-to)
+      db)))

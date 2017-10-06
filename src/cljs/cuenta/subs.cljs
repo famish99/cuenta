@@ -1,7 +1,8 @@
 (ns cuenta.subs
   (:require-macros [reagent.ratom :refer [reaction]])
   (:require [clojure.string :refer [blank?]]
-            [re-frame.core :as rf]))
+            [re-frame.core :as rf]
+            [cuenta.calc :as calc]))
 
 (rf/reg-sub
   :route
@@ -114,45 +115,24 @@
   (fn [[people owners] [_ person-name item-id]]
     (get-in owners [person-name item-id] false)))
 
-(defn item-cost-per-person
-  [owners tax-rate]
-  (fn [[item-key {:keys [item-price item-quantity item-taxable]
-                  :or {item-quantity 1 item-taxable true}}]]
-    [item-key (* item-price
-                 (if item-taxable (+ 1 (/ tax-rate 100)) 1)
-                 (/ (int item-quantity)
-                    (max (reduce + (map #(get % item-key) (vals owners)))
-                         1)))])) ; prevent divide by zero
-
 (rf/reg-sub
   :item-cost-map
   :<- [:items]
   (fn [items _]
     (map (fn [[k v]] [k (dissoc v :item-name)]) items)))
 
-(defn calc-item-cost
-  [[items owners tax-rate] _]
-  (map (item-cost-per-person owners tax-rate) items))
-
 (rf/reg-sub
   :item-costs
   :<- [:item-cost-map]
   :<- [:owners]
   :<- [:tax-rate]
-  calc-item-cost)
-
-(defn calc-owed
-  [[costs owners] [_ person-name]]
-  (->> costs
-       (filter (fn [[k _]] (get (get owners person-name) k)))
-       (map second)
-       (reduce +)))
+  calc/calc-item-cost)
 
 (rf/reg-sub
   :owed
   :<- [:item-costs]
   :<- [:owners]
-  calc-owed)
+  calc/calc-owed)
 
 (rf/reg-sub
   :owed-matrix

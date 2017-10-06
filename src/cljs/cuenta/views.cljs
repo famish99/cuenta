@@ -122,14 +122,14 @@
         [:td
          [bs/form-control {:component-class :select
                            :disabled (< (count people) 1)
-                           :on-change #(print (.-target.value %))}
+                           :on-change #(rf/dispatch [:update-credit-to (.-target.value %)])}
           (for [person people]
             ^{:key (g-string/format "credit-select-%s" person)}
             [:option {:value person} person])]]]
        [:tr
         [:td {:col-span 2}
          [bs/button {:bs-style :primary
-                     :on-click #(print "submit")} ;#(rf/dispatch [:update-route :transaction])}
+                     :on-click #(rf/dispatch [:save-transaction])}
           [bs/glyphicon {:glyph :glyphicon-floppy-disk}] "Save"]]]]]]))
 
 (defn transaction-view []
