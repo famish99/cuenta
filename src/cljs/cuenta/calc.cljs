@@ -20,3 +20,15 @@
        (filter (fn [[k _]] (get (get owners person-name) k)))
        (map second)
        (reduce +)))
+
+(defn process-transaction
+  [db]
+  (let [credit-to (or (:credit-to db) (-> db (get :people) first))
+        owners (:owner-matrix db)
+        item-costs (calc-item-cost [(:items db) owners (:tax-rate db)])]
+    (-> db
+        :people
+        (->> (remove #{credit-to})
+             (map #(vector % (calc-owed [item-costs owners] [nil %])))
+             (into {})
+             (update-in db [:owed-matrix credit-to] (partial merge-with +))))))

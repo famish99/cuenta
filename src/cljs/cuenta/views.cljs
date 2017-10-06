@@ -148,19 +148,19 @@
      [bs/table
       [:thead
        [:tr
-        [:th "Moocher owes"]
-        (for [creditor-name owed-cols]
-          ^{:key (g-string/format "creditor-header-%s" creditor-name)}
-          [:th creditor-name])]]
+        [:th "Creditor"]
+        (for [debtor-name owed-cols]
+          ^{:key (g-string/format "debtor-header-%s" debtor-name)}
+          [:th {:style {:text-align :right}} debtor-name])]]
       [:tbody
-       (for [[debtor-name debts] owed-matrix]
-         ^{:key (g-string/format "debt-row-%s" debtor-name)}
+       (for [[creditor-name debts] owed-matrix]
+         ^{:key (g-string/format "debt-row-%s" creditor-name)}
          [:tr
-          [:td debtor-name]
-          (for [creditor-name owed-cols]
-            ^{:key (g-string/format "%s-owes-%s" debtor-name creditor-name)}
-            [:td
-             (get debts creditor-name "")])])
+          [:td creditor-name]
+          (for [debtor-name owed-cols]
+            ^{:key (g-string/format "%s-owes-%s" creditor-name debtor-name)}
+            [:td {:style {:text-align :right}}
+             (g-string/format "$%.02f" (get debts debtor-name 0))])])
        [:tr
         [:td
          [bs/button {:bs-style :primary

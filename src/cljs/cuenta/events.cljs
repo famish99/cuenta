@@ -1,8 +1,8 @@
 (ns cuenta.events
-  (:require [clojure.string :refer [blank?]]
-            [re-frame.core :as rf]
+  (:require [re-frame.core :as rf]
             [cuenta.calc :as calc]
-            [cuenta.db :as db]))
+            [cuenta.db :as db]
+            [cuenta.util :as util]))
 
 (rf/reg-event-db
   :initialize-db
@@ -27,7 +27,7 @@
   :update-person
   (fn [db [_ pos new-name]]
     (->> (assoc (:people db) pos new-name)
-         (filter (complement blank?))
+         (filter util/not-blank?)
          (distinct)
          (vec)
          (assoc db :people)
@@ -39,7 +39,7 @@
     (let [result
           (->> new-value
                (assoc-in (:items db) path)
-               (filter (fn [[k v]] (not (blank? (:item-name v)))))
+               (filter (fn [[k v]] (util/not-blank? (:item-name v))))
                (into {})
                (assoc db :items))]
       result)))
@@ -62,14 +62,7 @@
 (rf/reg-event-db
   :save-transaction
   (fn [db _]
-    (let [credit-to (or (:credit-to db) (-> db (get :people) (first)))
-          owners (:owner-matrix db)
-          item-costs (calc/calc-item-cost [(:items db) owners (:tax-rate db)])
-          result
-          (->> db
-               (:people)
-               (remove #{credit-to})
-               (map #(vector % (calc/calc-owed [item-costs owners] [_ %])))
-               )]
-      (print result credit-to)
-      db)))
+    (-> db
+        calc/process-transaction
+        (conj db/transaction-defaults)
+        (assoc :route :home))))
