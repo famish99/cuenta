@@ -2,7 +2,9 @@
   (:require-macros [reagent.ratom :refer [reaction]])
   (:require [clojure.string :refer [blank?]]
             [re-frame.core :as rf]
-            [cuenta.calc :as calc]))
+            [cuenta.calc :as calc]
+            [cuenta.constants :as const]
+            [cuenta.util :as util]))
 
 (rf/reg-sub
   :route
@@ -80,11 +82,10 @@
   :item-price
   :<- [:items]
   (fn [items [_ id]]
-    (let [{:keys [item-name item-price] :or {item-price "0.00"}} (get items id)]
-      {:valid-state (if (and (js/isNaN (js/parseFloat item-price))
-                             (not (blank? item-price)))
-                      :error
-                      nil)
+    (let [{:keys [item-name item-price] :or {item-price const/default-price}} (get items id)]
+      {:valid-state (when (and (js/isNaN (js/parseFloat item-price))
+                             (util/not-blank? item-price))
+                      :error)
        :disabled? (blank? item-name)
        :value item-price})))
 
@@ -92,10 +93,9 @@
   :item-quantity
   :<- [:items]
   (fn [items [_ id]]
-    (let [{:keys [item-name item-quantity] :or {item-quantity 1}} (get items id)]
-      {:valid-state (if (or (js/Number.isInteger (js/parseFloat item-quantity))
-                            (blank? item-quantity))
-                      nil
+    (let [{:keys [item-name item-quantity] :or {item-quantity const/default-quantity}} (get items id)]
+      {:valid-state (when (and (js/isNaN (js/parseInt item-quantity))
+                            (util/not-blank? item-quantity))
                       :error)
        :disabled? (blank? item-name)
        :value item-quantity})))
@@ -132,12 +132,15 @@
   :owed
   :<- [:item-costs]
   :<- [:owners]
-  calc/calc-owed)
+  (fn [data [_ person-name]]
+    (calc/calc-owed data person-name)))
 
 (rf/reg-sub
   :owed-matrix
   (fn [db _]
-    (:owed-matrix db)))
+    (->> db
+         :owed-matrix
+         (into (sorted-map)))))
 
 (rf/reg-sub
   :owed-cols
@@ -147,4 +150,4 @@
          (vals)
          (map keys)
          (flatten)
-         (into #{}))))
+         (into (sorted-set)))))
