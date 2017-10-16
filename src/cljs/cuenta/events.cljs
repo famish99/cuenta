@@ -1,5 +1,7 @@
 (ns cuenta.events
-  (:require [re-frame.core :as rf]
+  (:require [ajax.core :as ajax]
+            [day8.re-frame.http-fx]
+            [re-frame.core :as rf]
             [cuenta.calc :as calc]
             [cuenta.db :as db]
             [cuenta.util :as util]))
@@ -36,13 +38,11 @@
 (rf/reg-event-db
   :update-item
   (fn [db [_ new-value & path]]
-    (let [result
-          (->> new-value
-               (assoc-in (:items db) path)
-               (filter (fn [[k v]] (util/not-blank? (:item-name v))))
-               (into {})
-               (assoc db :items))]
-      result)))
+    (->> new-value
+         (assoc-in (:items db) path)
+         (filter (fn [[k v]] (util/not-blank? (:item-name v))))
+         (into {})
+         (assoc db :items))))
 
 (rf/reg-event-db
   :update-owner
@@ -59,10 +59,29 @@
   (fn [db [_ new-value]]
     (assoc db :credit-to new-value)))
 
-(rf/reg-event-db
+(rf/reg-event-fx
+  :save-success
+  (fn [world result]
+    (print result)))
+
+(rf/reg-event-fx
+  :save-failed
+  (fn [world result]
+    (print result)))
+
+(rf/reg-event-fx
   :save-transaction
-  (fn [db _]
-    (-> db
-        calc/process-transaction
-        (conj db/transaction-defaults)
-        (assoc :route :home))))
+  (fn [world _]
+    (print world)
+    {:http-xhrio {:method :post
+                  :uri "http://localhost:3460/api"
+                  :params world
+                  :timeout 5000
+                  :format (ajax/transit-request-format)
+                  :response-format (ajax/transit-response-format)
+                  :on-success [:save-success]
+                  :on-failure [:save-failed]}}))
+    ;(-> db
+        ;calc/process-transaction
+        ;(conj db/transaction-defaults)
+        ;(assoc :route :home)]))
