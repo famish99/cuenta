@@ -7,7 +7,7 @@
     [item-key (* item-price
                  (if item-taxable (+ 1 (/ tax-rate 100)) 1)
                  (/ (int item-quantity)
-                    (max (reduce + (map #(get % item-key) (vals owners)))
+                    (max (reduce + (map #(if (get % item-key) 1 0) (vals owners)))
                          1)))])) ; prevent divide by zero
 
 (defn calc-item-cost
@@ -15,7 +15,7 @@
   (map (item-cost-per-person owners tax-rate) items))
 
 (defn calc-owed
-  [[costs owners] [_ person-name]]
+  [[costs owners] person-name]
   (->> costs
        (filter (fn [[k _]] (get (get owners person-name) k)))
        (map second)
@@ -29,6 +29,6 @@
     (-> db
         :people
         (->> (remove #{credit-to})
-             (map #(vector % (calc-owed [item-costs owners] [nil %])))
+             (map #(vector % (calc-owed [item-costs owners] %)))
              (into {})
              (update-in db [:owed-matrix credit-to] (partial merge-with +))))))

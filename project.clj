@@ -1,7 +1,9 @@
 (defproject cuenta "0.1.0-SNAPSHOT"
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.clojure/clojurescript "1.9.229"]
+                 [bidi "2.0.12"]
                  [cljs-ajax "0.7.2"]
+                 [com.cognitect/transit-clj "0.8.300"]
                  [com.datomic/datomic-free "0.9.5561"]
                  [day8.re-frame/http-fx "0.1.4"]
                  [figwheel-sidecar "0.5.9"]
@@ -11,16 +13,17 @@
                  [re-frisk "0.4.5"]
                  [org.clojure/core.async "0.2.391"]
                  [ring "1.6.0"]
-                 [re-com "2.0.0"]]
+                 [org.immutant/web "2.1.9"]]
 
   :plugins [[lein-cljsbuild "1.1.4"]
             [lein-figwheel "0.5.9"]]
 
   :min-lein-version "2.5.3"
 
-  :source-paths ["src/clj"]
+  :source-paths ["src/clj" "src/cljc"]
 
   :clean-targets ^{:protect false} ["resources/public/js/compiled" "target"]
+
 
   :figwheel {:http-server-root "public"
              :server-port 3460
@@ -36,13 +39,16 @@
    {:dependencies [[binaryage/devtools "0.8.2"]
                    [com.cemerick/piggieback "0.2.2"]
                    [org.clojure/tools.nrepl "0.2.10"]]
+    :main backend/main
+    :source-paths ["src/clj" "src/cljc" "env/dev"]
+    :resource-paths [""]
     :plugins      [[lein-figwheel "0.5.9"]]}}
 
 
   :cljsbuild
   {:builds
    [{:id           "dev"
-     :source-paths ["src/cljs"]
+     :source-paths ["src/cljs" "src/cljc"]
      :figwheel     {:on-jsload "cuenta.core/mount-root"
                     :websocket-host :js-client-host}
      :compiler     {:main                 cuenta.core

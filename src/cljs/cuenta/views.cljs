@@ -3,6 +3,7 @@
             [reagent.core :as r]
             [re-frame.core :as rf]
             [re-com.core :as re-com]
+            [cuenta.constants :as const]
             [cuenta.components.bootstrap :as bs]))
 
 (defn person-entry
@@ -30,11 +31,6 @@
        (for [pos count-people]
          ^{:key (g-string/format "person-entry-%d" pos)}
          [person-entry pos])]]]))
-
-(defn person-component
-  [pos component-base]
-  (let [name-value @(rf/subscribe [:person pos])]
-    (into component-base name-value)))
 
 (defn item-checkbox
   [person i-pos]
@@ -64,6 +60,7 @@
              {:type :text
               :value (:value item-price)
               :disabled (:disabled? item-price)
+              :on-blur #(rf/dispatch [:cast-item :money const/default-price i-pos :item-price])
               :on-change #(rf/dispatch [:update-item (.-target.value %) i-pos :item-price])}]
             [bs/form-control-feedback]]]]
      [:td [bs/form-group
@@ -72,6 +69,7 @@
             {:type :text
              :value (:value item-quantity)
              :disabled (:disabled? item-quantity)
+             :on-blur #(rf/dispatch [:cast-item :int "1" i-pos :item-quantity])
              :on-change #(rf/dispatch [:update-item (.-target.value %) i-pos :item-quantity])}]
            [bs/form-control-feedback]]]
      [:td [bs/checkbox
@@ -112,6 +110,7 @@
            [bs/form-control
             {:type :text
              :value (:value tax-rate)
+             :on-blur #(rf/dispatch [:cast-tax-rate])
              :on-change #(rf/dispatch [:update-tax-rate (.-target.value %)])}]
            [bs/input-group-addon "%"]
            [bs/form-control-feedback]]]]]
@@ -164,7 +163,7 @@
        [:tr
         [:td
          [bs/button {:bs-style :primary
-                     :on-click #(rf/dispatch [:update-route :transaction])}
+                     :on-click #(rf/dispatch [:add-transaction])}
           [bs/glyphicon {:glyph :glyphicon-plus}] "Add Transaction"]]]]]]))
 
 (defn home []
@@ -186,5 +185,9 @@
        [bs/navbar-brand
         [bs/button {:bs-style :link
                     :on-click #(rf/dispatch [:update-route :home])}
-         "Split da Bill"]]]]
+         "Split da Bill"]]]
+      [bs/navbar-collapse
+       [bs/nav {:pull-right true}
+        [bs/nav-item {:event-key "dump"
+                      :on-click #(rf/dispatch [:dump-backend])} "DUMP ME"]]]]
      [(get view-map route home)]]))
