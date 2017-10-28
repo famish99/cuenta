@@ -1,6 +1,7 @@
 (ns backend
   (:require [cuenta.core :refer [backend-handler]]
-            [immutant.web :as web])
+            [immutant.web :as web]
+            [ring.middleware.defaults :refer :all])
   (:gen-class))
 
 (defn main

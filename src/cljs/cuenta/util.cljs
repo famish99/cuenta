@@ -1,8 +1,9 @@
 (ns cuenta.util
-  (:require [clojure.string :refer [blank?]]
-            [goog.string :as g-string]))
+  (:require [clojure.string :as c-string]
+            [goog.string :as g-string]
+            goog.string.format))
 
-(def not-blank? (complement blank?))
+(def not-blank? (complement c-string/blank?))
 
 (defn format-int
   [input-value default-value]
@@ -24,3 +25,8 @@
     (if (js/isNaN value)
       default-value
       (g-string/format "%f" value))))
+
+(defn trim-string
+  [input-value]
+  (when input-value
+    (c-string/trim input-value)))

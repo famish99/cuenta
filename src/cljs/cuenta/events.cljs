@@ -9,10 +9,33 @@
             [cuenta.db :as db]
             [cuenta.util :as util]))
 
-(rf/reg-event-db
+(rf/reg-event-fx
   :initialize-db
   (fn [_ _]
-    db/default-db))
+    {:db db/default-db
+     :dispatch [:init-home]}))
+
+(rf/reg-event-db
+  :load-home
+  (fn [db _]
+    (-> db
+        (dissoc :people
+                :items
+                :tax-rate
+                :owner-matrix)
+        (assoc :route :home))))
+
+(rf/reg-event-fx
+  :init-home
+  (fn [world _]
+    {:http-xhrio {:method :post
+                  :uri "/api/load/matrix"
+                  :params {:action :load-matrix}
+                  :timeout 5000
+                  :format (ajax/transit-request-format)
+                  :response-format (ajax/transit-response-format)
+                  :on-success [:update-owed]
+                  :on-failure [:dump-result]}}))
 
 (rf/reg-event-db
   :update-route
@@ -38,7 +61,12 @@
 (rf/reg-event-db
   :update-person
   (fn [db [_ pos new-name]]
-    (->> (assoc (:people db) pos new-name)
+    (assoc-in db [:people pos] new-name)))
+
+(rf/reg-event-db
+  :trim-person
+  (fn [db [_ pos]]
+    (->> (update (:people db) pos util/trim-string)
          (filter util/not-blank?)
          (distinct)
          (vec)
@@ -50,20 +78,22 @@
   (fn [db [_ new-value & path]]
     (->> new-value
          (assoc-in (:items db) path)
-         (filter (fn [[k v]] (util/not-blank? (:item-name v))))
-         (into {})
          (assoc db :items))))
 
 (rf/reg-event-db
   :cast-item
   (fn [db [_ cast-type default-value & path]]
-    (update-in db
-               (into [:items] path)
-               (condp = cast-type
-                 :int util/format-int
-                 :float util/format-float
-                 :money util/format-money)
-               default-value)))
+    (->> (update-in (:items db)
+                    path
+                    (condp = cast-type
+                      :int util/format-int
+                      :float util/format-float
+                      :money util/format-money
+                      :string util/trim-string)
+                    default-value)
+         (filter (fn [[k v]] (util/not-blank? (:item-name v))))
+         (into {})
+         (assoc db :items))))
 
 (rf/reg-event-db
   :update-owner
@@ -85,10 +115,26 @@
   (fn [db [_ new-value]]
     (assoc db :credit-to new-value)))
 
+(defn update-owed
+  [world [_ result]]
+  {:db (-> world :db (assoc :owed-matrix result))})
+
+(rf/reg-event-fx
+  :update-owed
+  update-owed)
+
+(rf/reg-event-fx
+  :complete-transaction
+  (fn [world disp-v]
+    (-> world
+        (update-owed disp-v)
+        (assoc :dispatch [:load-home]))))
+
 (rf/reg-event-fx
   :dump-result
   (fn [world [_ result]]
-    (pprint result)))
+    (-> result
+        pprint)))
 
 (rf/reg-event-fx
   :dump-backend
@@ -108,7 +154,7 @@
   :save-transaction
   (fn [world _]
     {:http-xhrio {:method :post
-                  :uri "/api"
+                  :uri "/api/save/transaction"
                   :params (-> world
                               :db
                               (select-keys [:items :people :tax-rate :owner-matrix :credit-to])
@@ -116,5 +162,5 @@
                   :timeout 5000
                   :format (ajax/transit-request-format)
                   :response-format (ajax/transit-response-format)
-                  :on-success [:dump-result]
+                  :on-success [:complete-transaction]
                   :on-failure [:dump-result]}}))

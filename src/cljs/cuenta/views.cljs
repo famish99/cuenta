@@ -1,8 +1,9 @@
 (ns cuenta.views
   (:require [goog.string :as g-string]
+            goog.string.format
             [reagent.core :as r]
             [re-frame.core :as rf]
-            [re-com.core :as re-com]
+            [cuenta.config :as config]
             [cuenta.constants :as const]
             [cuenta.components.bootstrap :as bs]))
 
@@ -12,9 +13,10 @@
         owed @(rf/subscribe [:owed name-value])]
     [:tr
      [:td
-      [bs/form-control
+      [:input.form-control
        {:type :text
         :value name-value
+        :on-blur #(rf/dispatch [:trim-person pos])
         :on-change #(rf/dispatch [:update-person pos (.-target.value %)])}]]
      [:td (g-string/format "$%.02f" owed)]]))
 
@@ -48,15 +50,16 @@
         item-quantity @(rf/subscribe [:item-quantity i-pos])
         item-taxable @(rf/subscribe [:item-taxable i-pos])]
     [:tr
-     [:td [bs/form-control
+     [:td [:input.form-control
            {:type :text
             :value item-name
+            :on-blur #(rf/dispatch [:cast-item :string "" i-pos :item-name])
             :on-change #(rf/dispatch [:update-item (.-target.value %) i-pos :item-name])}]]
      [:td [bs/form-group
            {:validation-state (:valid-state item-price)}
            [bs/input-group
             [bs/input-group-addon "$"]
-            [bs/form-control
+            [:input.form-control
              {:type :text
               :value (:value item-price)
               :disabled (:disabled? item-price)
@@ -65,7 +68,7 @@
             [bs/form-control-feedback]]]]
      [:td [bs/form-group
            {:validation-state (:valid-state item-quantity)}
-           [bs/form-control
+           [:input.form-control
             {:type :text
              :value (:value item-quantity)
              :disabled (:disabled? item-quantity)
@@ -107,7 +110,7 @@
          [bs/form-group
            {:validation-state (:valid-state tax-rate)}
           [bs/input-group
-           [bs/form-control
+           [:input.form-control
             {:type :text
              :value (:value tax-rate)
              :on-blur #(rf/dispatch [:cast-tax-rate])
@@ -119,9 +122,10 @@
          [bs/form-group
           [bs/control-label "Credit to:"]]]
         [:td
-         [bs/form-control {:component-class :select
-                           :disabled (< (count people) 1)
-                           :on-change #(rf/dispatch [:update-credit-to (.-target.value %)])}
+         [bs/form-control
+          {:component-class :select
+           :disabled (< (count people) 1)
+           :on-change #(rf/dispatch [:update-credit-to (.-target.value %)])}
           (for [person people]
             ^{:key (g-string/format "credit-select-%s" person)}
             [:option {:value person} person])]]]
@@ -158,8 +162,11 @@
           [:td creditor-name]
           (for [debtor-name owed-cols]
             ^{:key (g-string/format "%s-owes-%s" creditor-name debtor-name)}
-            [:td {:style {:text-align :right}}
-             (g-string/format "$%.02f" (get debts debtor-name 0))])])
+            [:td {:style (if (= creditor-name debtor-name)
+                           {:text-align :right :background :gray}
+                           {:text-align :right})}
+             (if-let [debt (get debts debtor-name)]
+               (g-string/format "$%.02f" debt))])])
        [:tr
         [:td
          [bs/button {:bs-style :primary
@@ -184,10 +191,11 @@
       [bs/navbar-header
        [bs/navbar-brand
         [bs/button {:bs-style :link
-                    :on-click #(rf/dispatch [:update-route :home])}
+                    :on-click #(rf/dispatch [:load-home])}
          "Split da Bill"]]]
       [bs/navbar-collapse
        [bs/nav {:pull-right true}
-        [bs/nav-item {:event-key "dump"
-                      :on-click #(rf/dispatch [:dump-backend])} "DUMP ME"]]]]
+        (when config/debug?
+          [bs/nav-item {:event-key "dump"
+                        :on-click #(rf/dispatch [:dump-backend])} "DUMP ME"])]]]
      [(get view-map route home)]]))

@@ -138,7 +138,9 @@
 (rf/reg-sub
   :owed-matrix
   (fn [db _]
-    (:owed-matrix db)))
+    (->> db
+         :owed-matrix
+         (into (sorted-map)))))
 
 (rf/reg-sub
   :owed-cols
@@ -148,4 +150,4 @@
          (vals)
          (map keys)
          (flatten)
-         (into #{}))))
+         (into (sorted-set)))))

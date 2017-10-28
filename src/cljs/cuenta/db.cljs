@@ -5,7 +5,8 @@
   {:people []
    :items {}
    :tax-rate const/default-tax-rate
-   :owner-matrix {}})
+   :owner-matrix {}
+   :credit-to nil})
 
 (def default-db
   {:route :home :owed-matrix {}})
