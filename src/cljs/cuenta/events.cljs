@@ -1,6 +1,7 @@
 (ns cuenta.events
   (:require [ajax.core :as ajax]
-            [cljs.pprint :refer [pprint]]
+            [ajax.transit :as ajax-t]
+            [cljs.pprint :as pp]
             [day8.re-frame.http-fx]
             [goog.string :as g-string]
             [re-frame.core :as rf]
@@ -133,17 +134,16 @@
 (rf/reg-event-fx
   :dump-result
   (fn [world [_ result]]
-    (-> result
-        pprint)))
+    (->> result
+         ;pp/pprint)))
+         (.log js/console))))
 
 (rf/reg-event-fx
   :dump-backend
   (fn [world _]
     {:http-xhrio {:method :post
-                  :uri "/api"
-                  :params (-> world
-                              :db
-                              (assoc :action :dump-db))
+                  :uri "/api/dump"
+                  :params {:action :reduce-owed}
                   :timeout 5000
                   :format (ajax/transit-request-format)
                   :response-format (ajax/transit-response-format)

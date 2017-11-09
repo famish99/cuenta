@@ -6,7 +6,7 @@
                   :or {item-quantity 1 item-taxable true}}]]
     [item-key (* item-price
                  (if item-taxable (+ 1 (/ tax-rate 100)) 1)
-                 (/ (int item-quantity)
+                 (/ (int (or item-quantity 1))
                     (->> owners
                          vals
                          (map #(if (get % item-key) 1 0))
@@ -24,7 +24,7 @@
        (map second)
        (reduce +)))
 
-(defn reduce-debts
+(defn reduce-debts-simple
   [owed-matrix]
   (for [[creditor credits] owed-matrix
         [debtor debt] credits]
@@ -33,6 +33,30 @@
         {creditor {debtor (- debt rev-credit)}}
         :erase)
       {creditor {debtor debt}})))
+
+(defn trace-debt
+  [owed-matrix trace key node p-value]
+  (let [f-node (filter (fn [[_ v]] (> p-value v)) node)]
+    (if (> (count f-node) 0)
+      (->>
+        (for [[n-key n-value :as n-pair] f-node]
+          (let [n-node (get owed-matrix n-key)]
+            (if (some #{n-key} trace)
+              n-pair
+              {n-pair (trace-debt owed-matrix
+                                  (conj trace n-key)
+                                  n-key
+                                  n-node
+                                  n-value)})))
+        (into {}))
+      [trace (* (count trace) p-value)])))
+
+(defn reduce-debts
+  [owed-matrix]
+  (->>
+    (for [[key node] owed-matrix]
+      [key (trace-debt owed-matrix [key] key node 100)])
+    (into {})))
 
 (defn process-transaction
   [db]
