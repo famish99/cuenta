@@ -4,7 +4,8 @@
             [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [cognitect.transit :as transit]
-            [ring.util.response :refer [not-found resource-response]]
+            [ring.util.mime-type :as mime]
+            [ring.util.response :as ring-r]
             [cuenta.calc :as calc])
   (:import [java.io ByteArrayInputStream ByteArrayOutputStream]))
 
@@ -42,33 +43,39 @@
 
 (def resource-routes
   ["/" {#{"" "index"} :index
-        [[#"(css|js|static)" :resource-type]] {[[#".*" :resource-name]] :static-internal}
+        [[#"(css|js)" :resource-type]] {[[#".*" :resource-name]] :static-internal}
+        "api/dump" :api
         "api/load/matrix" :api
         "api/save/transaction" :api
         "loopback" :loopback}])
 
 (defn index-handler [request]
   "Handler for serving the base HTML"
-  (resource-response "index.html"))
+  (-> (ring-r/resource-response "index.html")
+      (assoc-in [:headers "Content-Type"] "text/html; charset-utf-8")))
 
 (defn int-handler [request]
   "Handler for the internal static resources"
-  (if-let [response (-> (format "%s/%s"
-                          (-> request :route-params :resource-type)
-                          (-> request :route-params :resource-name))
-                        (resource-response))]
-    response
-    (not-found "Resource not found")))
+  (let [resource-name (-> request :route-params :resource-name)
+        mime-type (mime/ext-mime-type resource-name)]
+    (if-let [response (-> (format "%s/%s"
+                                  (-> request :route-params :resource-type)
+                                  resource-name)
+                          (ring-r/resource-response)
+                          (assoc-in [:headers "Content-Type"]
+                                    (format "%s; charset=utf-8" mime-type)))]
+      response
+      (ring-r/not-found "Resource not found"))))
 
 (defn not-found-handler [request]
   "Handler to return 404 responses"
-  (not-found "Error 404: Could not find resource"))
+  (ring-r/not-found "Error 404: Could not find resource"))
 
 (defn adjust-items
   [[key value-map]]
-  [key (-> value-map
+  {key (-> value-map
            (update :item-price parse-float)
-           (update :item-quantity parse-int))])
+           (update :item-quantity parse-int))})
 
 (defn process-transaction
   [params]
@@ -83,11 +90,15 @@
 
 (defn load-matrix [_] (Thread/sleep 100) (-> @app-db :owed-matrix))
 
-(defn dump-db [_] @app-db)
+(defn dump-db [_] (Thread/sleep 100) @app-db)
+
+(defn reduce-owed [_]
+  (calc/reduce-debts (-> @app-db :owed-matrix)))
 
 (def route-map
   {:save-transaction process-transaction
    :load-matrix load-matrix
+   :reduce-owed reduce-owed
    :dump-db dump-db})
 
 (defn api-handler
@@ -102,12 +113,12 @@
                  "Pragma" "no-cache"
                  "Expires" 0}
        :body (transit-encode (handler (-> params (dissoc :action))))}
-      (not-found "Invalid API action"))))
+      (ring-r/not-found "Invalid API action"))))
 
 (defn loopback-handler
   [request]
   {:status 200
-   :headers {"Content-Type" "application/transit+json"}
+   :headers {"Content-Type" "application/transit+json; charset=utf-8"}
    :body (:body request)})
 
 (def backend-map
@@ -118,7 +129,7 @@
 
 (defn backend-handler
   [request]
-  (println (:uri request) (bidi/match-route resource-routes (:uri request)))
+  (println (:uri request))
   (if-let [{:keys [handler route-params]}
            (bidi/match-route resource-routes (:uri request))]
     (if-let [handler-f (handler backend-map)]

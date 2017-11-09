@@ -1,6 +1,7 @@
 (ns cuenta.events
   (:require [ajax.core :as ajax]
-            [cljs.pprint :refer [pprint]]
+            [ajax.transit :as ajax-t]
+            [cljs.pprint :as pp]
             [day8.re-frame.http-fx]
             [goog.string :as g-string]
             [re-frame.core :as rf]
@@ -58,6 +59,14 @@
   [{:keys [people owner-matrix] :as db}]
   (update db :owner-matrix select-keys people))
 
+(defn adjust-items-owned
+  [{:keys [owner-matrix items] :as db}]
+  (let [item-keys (keys items)]
+    (->> (for [[owner items-owned] owner-matrix]
+              {owner (select-keys items-owned item-keys)})
+         (into {})
+         (assoc db :owner-matrix))))
+
 (rf/reg-event-db
   :update-person
   (fn [db [_ pos new-name]]
@@ -68,10 +77,10 @@
   (fn [db [_ pos]]
     (->> (update (:people db) pos util/trim-string)
          (filter util/not-blank?)
-         (distinct)
-         (vec)
+         distinct
+         vec
          (assoc db :people)
-         (adjust-item-owners))))
+         adjust-item-owners)))
 
 (rf/reg-event-db
   :update-item
@@ -93,7 +102,8 @@
                     default-value)
          (filter (fn [[k v]] (util/not-blank? (:item-name v))))
          (into {})
-         (assoc db :items))))
+         (assoc db :items)
+         adjust-items-owned)))
 
 (rf/reg-event-db
   :update-owner
@@ -133,17 +143,15 @@
 (rf/reg-event-fx
   :dump-result
   (fn [world [_ result]]
-    (-> result
-        pprint)))
+    (->> result
+         (.log js/console))))
 
 (rf/reg-event-fx
   :dump-backend
   (fn [world _]
     {:http-xhrio {:method :post
-                  :uri "/api"
-                  :params (-> world
-                              :db
-                              (assoc :action :dump-db))
+                  :uri "/api/dump"
+                  :params {:action :dump-db}
                   :timeout 5000
                   :format (ajax/transit-request-format)
                   :response-format (ajax/transit-response-format)

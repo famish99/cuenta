@@ -4,16 +4,19 @@
                  [bidi "2.0.12"]
                  [cljs-ajax "0.7.2"]
                  [com.cognitect/transit-clj "0.8.300"]
+                 ;[com.datomic/clj-client "0.8.606"]
                  [com.datomic/datomic-free "0.9.5561"
                   :exclusions [com.google.guava/guava]]
+                 [korma "0.4.3"]
+                 [mysql/mysql-connector-java "8.0.8-dmr"]
                  [day8.re-frame/http-fx "0.1.4"]
-                 [reagent "0.6.2"]
                  [cljsjs/react-bootstrap "0.31.0-0" :exclusions [cljsjs/react]]
-                 [re-frame "0.9.4"]
                  [org.clojure/core.async "0.2.391"]
+                 [org.immutant/web "2.1.9"]
+                 [reagent "0.6.2"]
+                 [re-frame "0.9.4"]
                  [ring "1.6.0"]
-                 [ring/ring-defaults "0.3.1"]
-                 [org.immutant/web "2.1.9"]]
+                 [ring/ring-defaults "0.3.1"]]
 
   :plugins [[lein-cljsbuild "1.1.4"]
             [lein-figwheel "0.5.9"]]
@@ -24,7 +27,6 @@
   :resource-paths ["resources/public/"]
 
   :clean-targets ^{:protect false} ["resources/public/js/compiled" "target"]
-
 
   :figwheel {:http-server-root "public"
              :server-port 3460
@@ -45,7 +47,6 @@
                                  commons-codec]]
                    [re-frisk "0.4.5" :exclusions [com.google.guava/guava]]
                    [org.clojure/tools.nrepl "0.2.10"]]
-    :main backend/main
     :source-paths ["src/clj" "src/cljc" "env/dev"]}
    :prod
    {:jvm-opts ^:replace ["-Xmx2g" "-server"]
