@@ -7,11 +7,6 @@
             [cuenta.views :as views]
             [cuenta.config :as config]))
 
-(defn dev-setup []
-  (when config/debug?
-    (enable-console-print!)
-    (enable-re-frisk!)))
-
 (defn mount-root []
   (re-frame/clear-subscription-cache!)
   (reagent/render [views/router]
@@ -19,5 +14,6 @@
 
 (defn ^:export init []
   (re-frame/dispatch-sync [:initialize-db])
-  (dev-setup)
+  (enable-console-print!)
+  (enable-re-frisk!)
   (mount-root))

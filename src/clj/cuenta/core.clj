@@ -73,9 +73,9 @@
 
 (defn adjust-items
   [[key value-map]]
-  [key (-> value-map
+  {key (-> value-map
            (update :item-price parse-float)
-           (update :item-quantity parse-int))])
+           (update :item-quantity parse-int))})
 
 (defn process-transaction
   [params]
@@ -105,7 +105,6 @@
   [request]
   (let [params (transit-decode (:body request))
         handler (some->> params :action (get route-map))]
-    ;(pprint request)
     (if handler
       {:status 200
        :headers {"Content-Type" "application/transit+json"

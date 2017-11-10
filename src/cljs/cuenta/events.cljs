@@ -59,6 +59,14 @@
   [{:keys [people owner-matrix] :as db}]
   (update db :owner-matrix select-keys people))
 
+(defn adjust-items-owned
+  [{:keys [owner-matrix items] :as db}]
+  (let [item-keys (keys items)]
+    (->> (for [[owner items-owned] owner-matrix]
+              {owner (select-keys items-owned item-keys)})
+         (into {})
+         (assoc db :owner-matrix))))
+
 (rf/reg-event-db
   :update-person
   (fn [db [_ pos new-name]]
@@ -69,10 +77,10 @@
   (fn [db [_ pos]]
     (->> (update (:people db) pos util/trim-string)
          (filter util/not-blank?)
-         (distinct)
-         (vec)
+         distinct
+         vec
          (assoc db :people)
-         (adjust-item-owners))))
+         adjust-item-owners)))
 
 (rf/reg-event-db
   :update-item
@@ -94,7 +102,8 @@
                     default-value)
          (filter (fn [[k v]] (util/not-blank? (:item-name v))))
          (into {})
-         (assoc db :items))))
+         (assoc db :items)
+         adjust-items-owned)))
 
 (rf/reg-event-db
   :update-owner
@@ -135,7 +144,6 @@
   :dump-result
   (fn [world [_ result]]
     (->> result
-         ;pp/pprint)))
          (.log js/console))))
 
 (rf/reg-event-fx
@@ -143,7 +151,7 @@
   (fn [world _]
     {:http-xhrio {:method :post
                   :uri "/api/dump"
-                  :params {:action :reduce-owed}
+                  :params {:action :dump-db}
                   :timeout 5000
                   :format (ajax/transit-request-format)
                   :response-format (ajax/transit-response-format)
