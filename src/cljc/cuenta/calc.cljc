@@ -7,9 +7,10 @@
 
 (defn item-cost-per-person
   [owners tax-rate]
-  (fn [[item-key {:keys [item-price item-quantity item-taxable]}]]
+  (fn [[item-key {:keys [item-price item-quantity item-taxable]
+                  :or {item-quantity 1 item-taxable true}}]]
     [item-key (* item-price
-                 (if item-taxable (+ 1 (/ tax-rate 100)) 1)
+                 (if (false? item-taxable) 1 (+ 1 (/ tax-rate 100)))
                  (/ (int (or item-quantity 1))
                     (->> owners
                          vals
