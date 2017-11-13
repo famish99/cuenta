@@ -50,6 +50,11 @@
     :source-paths ["src/clj" "src/cljc" "env/dev"]}
    :prod
    {:jvm-opts ^:replace ["-Xmx2g" "-server"]
+    :source-paths ["src/clj" "src/cljc" "env/prod"]
+    :prep-tasks ["deps" ["cljsbuild" "once" "min"]]
+    :env {:production true}
+    :aot :all
+    :omit-source true
     :main backend/main}}
 
   :cljsbuild

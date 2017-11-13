@@ -6,4 +6,4 @@
 
 (defn main
   [& args]
-  (web/run-dmc backend-handler {:host "0.0.0.0" :port 3000 :path "/"}))
+  (web/run backend-handler {:host "0.0.0.0" :port 3000 :path "/"}))
