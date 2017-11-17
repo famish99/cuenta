@@ -8,6 +8,9 @@
                  [com.datomic/datomic-free "0.9.5561"
                   :exclusions [com.google.guava/guava]]
                  [korma "0.4.3"]
+                 ;[org.clojure/java.jdbc "0.7.3"]
+                 [migratus "1.0.0"]
+                 [org.slf4j/slf4j-log4j12 "1.7.9"]
                  [mysql/mysql-connector-java "8.0.8-dmr"]
                  [day8.re-frame/http-fx "0.1.4"]
                  [cljsjs/react-bootstrap "0.31.0-0" :exclusions [cljsjs/react]]
@@ -19,7 +22,8 @@
                  [ring/ring-defaults "0.3.1"]]
 
   :plugins [[lein-cljsbuild "1.1.4"]
-            [lein-figwheel "0.5.9"]]
+            [lein-figwheel "0.5.9"]
+            [migratus-lein "0.5.3"]]
 
   :min-lein-version "2.5.3"
 
@@ -36,6 +40,10 @@
              :css-dirs ["resources/public/css"]}
 
   :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}
+
+  :migratus {:store :database
+             :migration-dir "migrations"
+             :db ~(get (System/getenv) "DATABASE_URL")}
 
   :profiles
   {:dev
@@ -81,8 +89,4 @@
                     :parallel-build       true
                     :closure-defines {goog.DEBUG false}
                     :pretty-print    false}}]})
-
-
-
-
 

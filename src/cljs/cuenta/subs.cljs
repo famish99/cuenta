@@ -26,7 +26,6 @@
   (fn [db _]
     (:tax-rate db)))
 
-
 (rf/reg-sub
   :tax-rate-field
   :<- [:tax-rate]
