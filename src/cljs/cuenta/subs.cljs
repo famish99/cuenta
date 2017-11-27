@@ -27,6 +27,11 @@
     (:tax-rate db)))
 
 (rf/reg-sub
+  :vendor-name-field
+  (fn [db _]
+    (get db :vendor-name "")))
+
+(rf/reg-sub
   :tax-rate-field
   :<- [:tax-rate]
   (fn [tax-rate _]
@@ -35,6 +40,27 @@
                     :error
                     nil)
      :value tax-rate}))
+
+(rf/reg-sub
+  :tip-amount-store
+  (fn [db _]
+    (:tip-amount db)))
+
+(rf/reg-sub
+  :tip-amount
+  :<- [:tip-amount-store]
+  (fn [tip-amount _]
+    (calc/cast-float tip-amount)))
+
+(rf/reg-sub
+  :tip-amount-field
+  :<- [:tip-amount-store]
+  (fn [tip-amount _]
+    {:valid-state (if (and (js/isNaN (js/parseFloat tip-amount))
+                           (not (blank? tip-amount)))
+                    :error
+                    nil)
+     :value tip-amount}))
 
 (rf/reg-sub
   :count-new-people
@@ -128,11 +154,24 @@
   calc/calc-item-cost)
 
 (rf/reg-sub
+  :total-cost
+  :<- [:item-costs]
+  :<- [:tip-amount]
+  (partial calc/total-cost 1))
+
+(rf/reg-sub
+  :claimed-total
+  :<- [:item-costs]
+  :<- [:tip-amount]
+  (partial calc/total-cost 0))
+
+(rf/reg-sub
   :owed
   :<- [:item-costs]
   :<- [:owners]
-  (fn [data [_ person-name]]
-    (calc/calc-owed data person-name)))
+  :<- [:tip-amount]
+  :<- [:total-cost]
+  #(calc/calc-owed %1 (second %2)))
 
 (rf/reg-sub
   :owed-matrix
@@ -150,3 +189,4 @@
          (map keys)
          (flatten)
          (into (sorted-set)))))
+

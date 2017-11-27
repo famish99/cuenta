@@ -19,11 +19,7 @@
 (rf/reg-event-db
   :load-home
   (fn [db _]
-    (-> db
-        (dissoc :people
-                :items
-                :tax-rate
-                :owner-matrix)
+    (-> (apply dissoc db (keys db/transaction-defaults))
         (assoc :route :home))))
 
 (rf/reg-event-fx
@@ -121,6 +117,16 @@
     (update db :tax-rate util/format-float const/default-tax-rate)))
 
 (rf/reg-event-db
+  :update-tip-amount
+  (fn [db [_ new-value]]
+    (assoc db :tip-amount new-value)))
+
+(rf/reg-event-db
+  :cast-tip-amount
+  (fn [db _]
+    (update db :tip-amount util/format-money const/default-tip)))
+
+(rf/reg-event-db
   :update-credit-to
   (fn [db [_ new-value]]
     (assoc db :credit-to new-value)))
@@ -132,6 +138,11 @@
 (rf/reg-event-fx
   :update-owed
   update-owed)
+
+(rf/reg-event-db
+  :update-vendor-name
+  (fn [db [_ new-value]]
+    (assoc db :vendor-name new-value)))
 
 (rf/reg-event-fx
   :complete-transaction
@@ -165,7 +176,7 @@
                   :uri "/api/save/transaction"
                   :params (-> world
                               :db
-                              (select-keys [:items :people :tax-rate :owner-matrix :credit-to])
+                              (select-keys (keys db/transaction-defaults))
                               (assoc :action (-> world :event first)))
                   :timeout 5000
                   :format (ajax/transit-request-format)

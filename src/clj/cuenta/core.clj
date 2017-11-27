@@ -6,6 +6,7 @@
             [cognitect.transit :as transit]
             [ring.util.mime-type :as mime]
             [ring.util.response :as ring-r]
+            [cuenta.calc :as calc]
             [cuenta.db :as db]
             [cuenta.db.transactions :as t])
   (:import [java.io ByteArrayInputStream ByteArrayOutputStream]))
@@ -21,10 +22,6 @@
         writer (transit/writer output-stream msg-type)]
     (transit/write writer payload)
     (ByteArrayInputStream. (.toByteArray output-stream))))
-
-(defn parse-float [input] (if (string? input) (Double/parseDouble input) input))
-
-(defn parse-int [input] (if (string? input) (Integer/parseInt input) input))
 
 (def resource-routes
   ["/" {#{"" "index"} :index
@@ -59,14 +56,15 @@
 (defn adjust-items
   [[key value-map]]
   {key (-> value-map
-           (update :item-price parse-float)
-           (update :item-quantity parse-int))})
+           (update :item-price calc/cast-float)
+           (update :item-quantity calc/cast-int))})
 
 (defn process-transaction
   [params tx]
   (-> params
       (update :items #(->> % (map adjust-items) (into {})))
-      (update :tax-rate parse-float)
+      (update :tax-rate calc/cast-float)
+      (update :tip-amount calc/cast-float)
       (update :credit-to #(or % (-> params :people first)))
       (->> (t/process-transaction tx))))
 

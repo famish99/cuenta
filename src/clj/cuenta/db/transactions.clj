@@ -89,15 +89,17 @@
   (let [owed-matrix (find-debt conn)
         credit-to (or (:credit-to curr-t) (-> curr-t (get :people) first))
         owners (:owner-matrix curr-t)
-        item-costs (calc/calc-item-cost
-                     [(:items curr-t) owners (:tax-rate curr-t)])]
+        tip-amount (:tip-amount curr-t)
+        item-costs (calc/calc-item-cost [(:items curr-t) owners (:tax-rate curr-t)])
+        total-cost (calc/total-cost 1 [item-costs tip-amount])]
     (add-transaction conn curr-t)
     (->> curr-t
          :people
          (remove #{credit-to})
-         (map #(hash-map % (calc/calc-owed [item-costs owners] %)))
+         (map #(hash-map % (calc/calc-owed [item-costs owners tip-amount total-cost] %)))
          (into {})
          (update owed-matrix credit-to (partial merge-with +))
          calc/reduce-debts
          (add-debts conn))
     (find-debt conn)))
+

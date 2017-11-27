@@ -22,7 +22,9 @@
 
 (defn people-panel
   []
-  (let [count-people @(rf/subscribe [:count-new-people])]
+  (let [count-people @(rf/subscribe [:count-new-people])
+        claimed-total @(rf/subscribe [:claimed-total])
+        total-cost @(rf/subscribe [:total-cost])]
     [bs/panel {:header "People"}
      [bs/table
       [:thead
@@ -32,7 +34,12 @@
       [:tbody
        (for [pos count-people]
          ^{:key (g-string/format "person-entry-%d" pos)}
-         [person-entry pos])]]]))
+         [person-entry pos])
+       [:tr
+        [:td [:b "Claimed Total"]]
+        [:td [:b (when (> (- total-cost claimed-total) 0.01) {:style {:color :red}})
+              (g-string/format "$%.02f" claimed-total)]]]
+       ]]]))
 
 (defn item-checkbox
   [person i-pos]
@@ -83,13 +90,83 @@
        ^{:key (g-string/format "row-%d-person-%s" i-pos person)}
        [item-checkbox person i-pos])]))
 
+(defn tax-rate-field
+  []
+  (let [tax-rate @(rf/subscribe [:tax-rate-field])]
+    [:tr
+     [:td [bs/control-label "Tax Rate"]]
+     [:td
+      [bs/form-group
+       {:validation-state (:valid-state tax-rate)}
+       [bs/input-group
+        [:input.form-control
+         {:type :text
+          :value (:value tax-rate)
+          :on-blur #(rf/dispatch [:cast-tax-rate])
+          :on-change #(rf/dispatch [:update-tax-rate (.-target.value %)])}]
+        [bs/input-group-addon "%"]
+        [bs/form-control-feedback]]]]]))
 
-(defn items-panel
+(defn tip-rate-field
+  []
+  (let [tip-amount @(rf/subscribe [:tip-amount-field])]
+    [:tr
+     [:td [bs/control-label "Tip Amount"]]
+     [:td
+      [bs/form-group
+       {:validation-state (:valid-state tip-amount)}
+       [bs/input-group
+        [bs/input-group-addon "$"]
+        [:input.form-control
+         {:type :text
+          :value (:value tip-amount)
+          :on-blur #(rf/dispatch [:cast-tip-amount])
+          :on-change #(rf/dispatch [:update-tip-amount (.-target.value %)])}]
+        [bs/form-control-feedback]]]]]))
+
+(defn total-cost-field
+  []
+  (let [total-cost @(rf/subscribe [:total-cost])]
+    [:tr
+     [:td [bs/form-group [bs/control-label "Ticket Total"]]]
+     [:td {:style {:text-align :right}} [:b (g-string/format "$%.02f" total-cost)]]]))
+
+(defn credit-to-field
+  [people]
+  [:tr
+   [:td
+    [bs/form-group
+     [bs/control-label "Credit to"]]]
+   [:td
+    [bs/form-control
+     {:component-class :select
+      :disabled (< (count people) 1)
+      :on-change #(rf/dispatch [:update-credit-to (.-target.value %)])}
+     (for [person people]
+       ^{:key (g-string/format "credit-select-%s" person)}
+       [:option {:value person} person])]]])
+
+(defn vendor-name-field
+  []
+  (let [vendor-name @(rf/subscribe [:vendor-name-field])]
+    [bs/grid
+     [bs/row
+      [bs/col {:md 1 :style {:padding-top 8 :padding-left 8}}
+       [bs/form-group
+        [bs/control-label "Vendor"]]]
+      [bs/col {:md 4}
+       [:input.form-control
+        {:type :text
+         :value vendor-name
+         :on-change #(rf/dispatch [:update-vendor-name (.-target.value %)])}]]]]
+  ))
+
+(defn order-panel
   []
   (let [people @(rf/subscribe [:people])
-        count-items @(rf/subscribe [:count-new-items])
-        tax-rate @(rf/subscribe [:tax-rate-field])]
-    [bs/panel {:header "Items"}
+        count-items @(rf/subscribe [:count-new-items])]
+    [bs/panel {:header "Order Info"}
+     [vendor-name-field]
      [bs/table
       [:thead
        [:tr
@@ -104,31 +181,10 @@
        (for [i-pos count-items]
          ^{:key (g-string/format "item-row-%d" i-pos)}
          [item-entry i-pos people])
-       [:tr
-        [:td [bs/control-label "Tax Rate"]]
-        [:td
-         [bs/form-group
-           {:validation-state (:valid-state tax-rate)}
-          [bs/input-group
-           [:input.form-control
-            {:type :text
-             :value (:value tax-rate)
-             :on-blur #(rf/dispatch [:cast-tax-rate])
-             :on-change #(rf/dispatch [:update-tax-rate (.-target.value %)])}]
-           [bs/input-group-addon "%"]
-           [bs/form-control-feedback]]]]]
-       [:tr
-        [:td
-         [bs/form-group
-          [bs/control-label "Credit to:"]]]
-        [:td
-         [bs/form-control
-          {:component-class :select
-           :disabled (< (count people) 1)
-           :on-change #(rf/dispatch [:update-credit-to (.-target.value %)])}
-          (for [person people]
-            ^{:key (g-string/format "credit-select-%s" person)}
-            [:option {:value person} person])]]]
+       [tax-rate-field]
+       [tip-rate-field]
+       [total-cost-field]
+       [credit-to-field people]
        [:tr
         [:td {:col-span 2}
          [bs/button {:bs-style :primary
@@ -142,7 +198,7 @@
      [people-panel]]]
    [bs/row
     [bs/col {:md 12}
-     [items-panel]]]])
+     [order-panel]]]])
 
 (defn people-matrix []
   (let [owed-matrix @(rf/subscribe [:owed-matrix])

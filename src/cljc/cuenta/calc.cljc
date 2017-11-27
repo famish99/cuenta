@@ -5,29 +5,49 @@
   #?(:clj Double/MAX_VALUE
      :cljs (aget js/Number "MAX_VALUE")))
 
-(defn item-cost-per-person
-  [owners tax-rate]
-  (fn [[item-key {:keys [item-price item-quantity item-taxable]
-                  :or {item-quantity 1 item-taxable true}}]]
-    [item-key (* item-price
-                 (if (false? item-taxable) 1 (+ 1 (/ tax-rate 100)))
-                 (/ (int (or item-quantity 1))
-                    (->> owners
-                         vals
-                         (map #(if (get % item-key) 1 0))
-                         (reduce +)
-                         (max 1))))])) ; prevent divide by zero
+(defn cast-float
+  [input-value & {:keys [default] :or {default 0}}]
+  #?(:clj (if (string? input-value) (Double/parseDouble input-value) default)
+     :cljs (let [amount (js/parseFloat input-value)] (if (js/isNaN amount) default amount))))
+
+(defn cast-int
+  [input-value & {:keys [default] :or {default 0}}]
+  #?(:clj (if (string? input-value) (Integer/parseInt input-value) default)))
+
+(defn item-calc
+  [{:keys [item-price item-quantity item-taxable]
+    :or {item-quantity 1 item-taxable true}}
+   tax-rate]
+  (* item-price
+     (if (false? item-taxable) 1 (+ 1 (/ tax-rate 100)))
+     (int (or item-quantity 1))))
 
 (defn calc-item-cost
   [[items owners tax-rate] & _]
-  (map (item-cost-per-person owners tax-rate) items))
+  (for [[item-key item-element] items]
+    (as-> owners r
+      (vals r)
+      (map #(if (get % item-key) 1 0) r)
+      (reduce + r)
+      [item-key
+       [r (/ (item-calc item-element tax-rate)
+             (max r 1))]]))) ; prevent divide by zero
 
 (defn calc-owed
-  [[costs owners] person-name]
-  (->> costs
-       (filter (fn [[k _]] (get (get owners person-name) k)))
-       (map second)
-       (reduce +)))
+  [[costs owners tip-amount total] person-name]
+    (as-> costs r
+      (for [[k [_ cost]] r
+            :when (-> owners (get person-name) (get k))]
+        cost)
+      (reduce + r)
+      (+ r (* tip-amount (/ r
+                            (max 1 ; prevent divide by zero
+                                 (- total tip-amount)))))))
+
+(defn total-cost
+  [def-owner [costs tip-amount]]
+  (->> (for [[_ [n cost]] costs] (* (max def-owner n) cost))
+       (apply (partial + tip-amount))))
 
 (defn trace-debt
   [owed-matrix trace key node p-value]
