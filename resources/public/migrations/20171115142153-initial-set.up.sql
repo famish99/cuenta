@@ -3,12 +3,14 @@ CREATE TABLE IF NOT EXISTS `users` (
     `given_name` VARCHAR(16) NOT NULL,
     `surname` VARCHAR(16) NOT NULL,
     PRIMARY KEY (`id`)
-    ) ENGINE = InnoDB;
+    )
+    --ENGINE = InnoDB;
 --;;
 CREATE TABLE IF NOT EXISTS `transactions` (
     `id` INT NOT NULL AUTO_INCREMENT,
     PRIMARY KEY (`id`)
-    ) ENGINE = InnoDB;
+    )
+    --ENGINE = InnoDB;
 --;;
 CREATE TABLE `debts` (
     `id` INT NOT NULL AUTO_INCREMENT,
@@ -25,5 +27,6 @@ CREATE TABLE `debts` (
       FOREIGN KEY (`debtor_id`)
       REFERENCES `users` (`id`)
       ON DELETE CASCADE
-      ON UPDATE NO ACTION)
-ENGINE = InnoDB;
+      ON UPDATE NO ACTION
+    )
+    --ENGINE = InnoDB;
