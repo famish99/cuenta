@@ -26,8 +26,8 @@ SELECT item_id as id
    AND vendor_id = :vendor-id
 
 -- :name insert-transaction :i!
-INSERT INTO transactions (tax_rate, credit_to, vendor_id)
-VALUES (:tax-rate, :credit-to, :vendor-id)
+INSERT INTO transactions (tax_rate, tip_amount, credit_to, vendor_id)
+VALUES (:tax-rate, :tip-amount, :credit-to, :vendor-id)
 
 -- :name insert-transaction-item :i!
 INSERT INTO transaction_items (item_quantity, item_id, transaction_id)
