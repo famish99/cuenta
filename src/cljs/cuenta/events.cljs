@@ -23,6 +23,8 @@
         (dissoc :people
                 :items
                 :tax-rate
+                :tip-amount
+                :credit-to
                 :owner-matrix)
         (assoc :route :home))))
 
@@ -119,6 +121,16 @@
   :cast-tax-rate
   (fn [db _]
     (update db :tax-rate util/format-float const/default-tax-rate)))
+
+(rf/reg-event-db
+  :update-tip-amount
+  (fn [db [_ new-value]]
+    (assoc db :tip-amount new-value)))
+
+(rf/reg-event-db
+  :cast-tip-amount
+  (fn [db _]
+    (update db :tip-amount util/format-money const/default-tip)))
 
 (rf/reg-event-db
   :update-credit-to

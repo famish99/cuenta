@@ -26,7 +26,6 @@
   (fn [db _]
     (:tax-rate db)))
 
-
 (rf/reg-sub
   :tax-rate-field
   :<- [:tax-rate]
@@ -36,6 +35,21 @@
                     :error
                     nil)
      :value tax-rate}))
+
+(rf/reg-sub
+  :tip-amount
+  (fn [db _]
+    (:tip-amount db)))
+
+(rf/reg-sub
+  :tip-amount-field
+  :<- [:tip-amount]
+  (fn [tip-amount _]
+    {:valid-state (if (and (js/isNaN (js/parseFloat tip-amount))
+                           (not (blank? tip-amount)))
+                    :error
+                    nil)
+     :value tip-amount}))
 
 (rf/reg-sub
   :count-new-people
@@ -129,11 +143,40 @@
   calc/calc-item-cost)
 
 (rf/reg-sub
+  :total-cost
+  :<- [:item-cost-map]
+  :<- [:tax-rate]
+  :<- [:tip-amount]
+  calc/total-cost)
+
+(rf/reg-sub
+  :claimed-total
+  :<- [:item-cost-map]
+  :<- [:tax-rate]
+  :<- [:tip-amount]
+  :<- [:owners]
+  (fn [[items tax-rate tip-amount owners] _]
+    (let [owned-matrix (apply merge-with #(or %1 %2) (vals owners)) ]
+      (->>
+        (for [[item-key item-val] items] 
+          (if (get owned-matrix item-key) 
+            (calc/item-calc item-val tax-rate)
+            0))
+        (apply +)
+        (+ (js/parseFloat tip-amount))))))
+
+(rf/reg-sub
   :owed
   :<- [:item-costs]
   :<- [:owners]
-  (fn [data [_ person-name]]
-    (calc/calc-owed data person-name)))
+  :<- [:tip-amount]
+  :<- [:total-cost]
+  (fn [[costs owners tip-amount total] [_ person-name]]
+    (let [pre-tip-owed (calc/calc-owed [costs owners] person-name)]
+      (+ pre-tip-owed
+         (* tip-amount
+            (/ pre-tip-owed (- total tip-amount))))
+      )))
 
 (rf/reg-sub
   :owed-matrix

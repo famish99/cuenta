@@ -5,18 +5,28 @@
   #?(:clj Double/MAX_VALUE
      :cljs (aget js/Number "MAX_VALUE")))
 
+(defn cast-float
+  [input-value]
+  #?(:clj (Double/parseDouble input-value)
+     :cljs (js/parseFloat input-value)))
+
+(defn item-calc
+  [{:keys [item-price item-quantity item-taxable]
+    :or {item-quantity 1 item-taxable true}}
+   tax-rate]
+  (* item-price
+     (if (false? item-taxable) 1 (+ 1 (/ tax-rate 100)))
+     (int (or item-quantity 1))))
+
 (defn item-cost-per-person
   [owners tax-rate]
-  (fn [[item-key {:keys [item-price item-quantity item-taxable]
-                  :or {item-quantity 1 item-taxable true}}]]
-    [item-key (* item-price
-                 (if (false? item-taxable) 1 (+ 1 (/ tax-rate 100)))
-                 (/ (int (or item-quantity 1))
-                    (->> owners
-                         vals
-                         (map #(if (get % item-key) 1 0))
-                         (reduce +)
-                         (max 1))))])) ; prevent divide by zero
+  (fn [[item-key item-element]]
+    [item-key (/ (item-calc item-element tax-rate)
+                 (->> owners
+                      vals
+                      (map #(if (get % item-key) 1 0))
+                      (reduce +)
+                      (max 1)))])) ; prevent divide by zero
 
 (defn calc-item-cost
   [[items owners tax-rate] & _]
@@ -28,6 +38,13 @@
        (filter (fn [[k _]] (get (get owners person-name) k)))
        (map second)
        (reduce +)))
+
+(defn total-cost
+  [[items tax-rate tip-amount] & _]
+  (->> items
+       (map #(-> % second (item-calc tax-rate)))
+       (apply +)
+       (+ (cast-float tip-amount))))
 
 (defn trace-debt
   [owed-matrix trace key node p-value]

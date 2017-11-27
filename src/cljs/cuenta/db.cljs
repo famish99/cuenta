@@ -5,6 +5,7 @@
   {:people []
    :items {}
    :tax-rate const/default-tax-rate
+   :tip-amount const/default-tip
    :owner-matrix {}
    :credit-to nil})
 

@@ -22,7 +22,9 @@
 
 (defn people-panel
   []
-  (let [count-people @(rf/subscribe [:count-new-people])]
+  (let [count-people @(rf/subscribe [:count-new-people])
+        claimed-total @(rf/subscribe [:claimed-total])
+        total-cost @(rf/subscribe [:total-cost])]
     [bs/panel {:header "People"}
      [bs/table
       [:thead
@@ -32,7 +34,15 @@
       [:tbody
        (for [pos count-people]
          ^{:key (g-string/format "person-entry-%d" pos)}
-         [person-entry pos])]]]))
+         [person-entry pos])
+       [:tr
+        [:td "Ticket Total"]
+        [:td (g-string/format "$%.02f" total-cost)]]
+       [:tr
+        [:td [:b "Claimed Total"]]
+        [:td [:b (when (> (- total-cost claimed-total) 0.01) {:style {:color :red}})
+              (g-string/format "$%.02f" claimed-total)]]]
+       ]]]))
 
 (defn item-checkbox
   [person i-pos]
@@ -88,7 +98,8 @@
   []
   (let [people @(rf/subscribe [:people])
         count-items @(rf/subscribe [:count-new-items])
-        tax-rate @(rf/subscribe [:tax-rate-field])]
+        tax-rate @(rf/subscribe [:tax-rate-field])
+        tip-amount @(rf/subscribe [:tip-amount-field])]
     [bs/panel {:header "Items"}
      [bs/table
       [:thead
@@ -116,6 +127,19 @@
              :on-blur #(rf/dispatch [:cast-tax-rate])
              :on-change #(rf/dispatch [:update-tax-rate (.-target.value %)])}]
            [bs/input-group-addon "%"]
+           [bs/form-control-feedback]]]]]
+       [:tr
+        [:td [bs/control-label "Tip Amount"]]
+        [:td
+         [bs/form-group
+           {:validation-state (:valid-state tip-amount)}
+          [bs/input-group
+           [bs/input-group-addon "$"]
+           [:input.form-control
+            {:type :text
+             :value (:value tip-amount)
+             :on-blur #(rf/dispatch [:cast-tip-amount])
+             :on-change #(rf/dispatch [:update-tip-amount (.-target.value %)])}]
            [bs/form-control-feedback]]]]]
        [:tr
         [:td
