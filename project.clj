@@ -22,7 +22,8 @@
                  [ring/ring-defaults "0.3.1"]]
 
   :plugins [[lein-cljsbuild "1.1.4"]
-            [lein-figwheel "0.5.9"]]
+            [lein-figwheel "0.5.9"]
+            [migratus-lein "0.5.3"]]
 
   :min-lein-version "2.5.3"
 
@@ -39,6 +40,10 @@
              :css-dirs ["resources/public/css"]}
 
   :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}
+
+  :migratus {:store :database
+             :migration-dir "migrations"
+             :db ~(get (System/getenv) "DATABASE_URL")}
 
   :profiles
   {:dev
