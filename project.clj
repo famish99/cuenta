@@ -7,8 +7,8 @@
                  ;[com.datomic/clj-client "0.8.606"]
                  [com.datomic/datomic-free "0.9.5561"
                   :exclusions [com.google.guava/guava]]
-                 [korma "0.4.3"]
-                 ;[org.clojure/java.jdbc "0.7.3"]
+                 [com.layerware/hugsql "0.4.8"]
+                 [org.clojure/java.jdbc "0.7.3"]
                  [migratus "1.0.0"]
                  [org.slf4j/slf4j-log4j12 "1.7.9"]
                  [mysql/mysql-connector-java "8.0.8-dmr"]

@@ -6,12 +6,40 @@ CREATE TABLE IF NOT EXISTS `users` (
     )
     ENGINE = InnoDB;
 --;;
+CREATE TABLE IF NOT EXISTS `vendors` (
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `vendor_name` VARCHAR(16) UNIQUE NOT NULL,
+    PRIMARY KEY (`id`)
+    )
+    ENGINE = InnoDB;
+--;;
+CREATE TABLE IF NOT EXISTS `items` (
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `item_name` VARCHAR(64) NOT NULL,
+    `item_price` DOUBLE NOT NULL,
+    `item_taxable` BIT(1) NOT NULL DEFAULT 1,
+    `vendor_id` INT NOT NULL,
+    PRIMARY KEY (`id`),
+    CONSTRAINT `fk_i_vendor`
+      FOREIGN KEY (`vendor_id`)
+      REFERENCES `vendors` (`id`)
+      ON DELETE CASCADE
+      ON UPDATE NO ACTION
+    )
+    ENGINE = InnoDB;
+--;;
 CREATE TABLE IF NOT EXISTS `transactions` (
     `id` INT NOT NULL AUTO_INCREMENT,
     `tax_rate` DOUBLE NOT NULL,
     `credit_to` INT NOT NULL,
-    `date_added` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `vendor_id` INT NOT NULL,
+    `date_added` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
+    CONSTRAINT `fk_t_vendor`
+      FOREIGN KEY (`vendor_id`)
+      REFERENCES `vendors` (`id`)
+      ON DELETE CASCADE
+      ON UPDATE NO ACTION,
     CONSTRAINT `fk_t_credit_to`
       FOREIGN KEY (`credit_to`)
       REFERENCES `users` (`id`)
@@ -22,12 +50,15 @@ CREATE TABLE IF NOT EXISTS `transactions` (
 --;;
 CREATE TABLE IF NOT EXISTS `transaction_items` (
     `id` INT NOT NULL AUTO_INCREMENT,
-    `item_name` VARCHAR(16) NOT NULL,
-    `item_price` DOUBLE NOT NULL,
     `item_quantity` INT NOT NULL DEFAULT 1,
-    `item_taxable` INT(1) NOT NULL DEFAULT 1,
+    `item_id` INT NOT NULL,
     `transaction_id` INT NOT NULL,
     PRIMARY KEY (`id`),
+    CONSTRAINT `fk_ti_item`
+      FOREIGN KEY (`item_id`)
+      REFERENCES `items` (`id`)
+      ON DELETE CASCADE
+      ON UPDATE NO ACTION,
     CONSTRAINT `fk_ti_transaction`
       FOREIGN KEY (`transaction_id`)
       REFERENCES `transactions` (`id`)
@@ -61,7 +92,7 @@ CREATE TABLE IF NOT EXISTS `transaction_owners` (
 --;;
 CREATE TABLE IF NOT EXISTS `debt_table` (
     `id` INT NOT NULL AUTO_INCREMENT,
-    `date_added` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `date_added` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`)
     )
     ENGINE = InnoDB;
