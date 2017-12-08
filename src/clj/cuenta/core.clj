@@ -1,29 +1,16 @@
 (ns cuenta.core
   (:require [bidi.bidi :as bidi]
             [clojure.java.io :as io]
+            [clojure.java.jdbc :as jdbc]
             [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [cognitect.transit :as transit]
             [ring.util.mime-type :as mime]
             [ring.util.response :as ring-r]
-            [cuenta.calc :as calc])
+            [cuenta.calc :as calc]
+            [cuenta.db :as db]
+            [cuenta.db.transactions :as t])
   (:import [java.io ByteArrayInputStream ByteArrayOutputStream]))
-
-(defn load-state
-  []
-  (with-open [fp (-> "data_store.json" io/resource io/input-stream)]
-    (->> (transit/reader fp :json)
-         transit/read)))
-
-(def app-db (atom (load-state)))
-
-(defn swap-n-save!
-  [f & args]
-  (with-open [fp (-> "data_store.json" io/resource io/output-stream)]
-    (let [writer (transit/writer fp :json)]
-      (->> (apply swap! app-db f args)
-           (transit/write writer))
-      @app-db)))
 
 (defn transit-decode
   [input-stream & {:keys [msg-type] :or {msg-type :json}}]
@@ -43,7 +30,7 @@
 
 (def resource-routes
   ["/" {#{"" "index"} :index
-        [[#"(css|js)" :resource-type]] {[[#".*" :resource-name]] :static-internal}
+        [[#"(css|js|static)" :resource-type]] {[[#".*" :resource-name]] :static-internal}
         "api/dump" :api
         "api/load/matrix" :api
         "api/save/transaction" :api
@@ -79,27 +66,20 @@
 
 (defn process-transaction
   [params]
-  (-> params
-      (update :items #(->> % (map adjust-items) (into {})))
-      (update :tax-rate parse-float)
-      (update :credit-to #(or % (-> params :people first)))
-      (->> (swap-n-save! update :transactions conj))
-      calc/process-transaction
-      (->> (swap-n-save! assoc :owed-matrix))
-      :owed-matrix))
+  (jdbc/with-db-transaction
+    [tx db/db-spec]
+    (-> params
+        (update :items #(->> % (map adjust-items) (into {})))
+        (update :tax-rate parse-float)
+        (update :credit-to #(or % (-> params :people first)))
+        (->> (t/process-transaction tx)))))
 
-(defn load-matrix [_] (Thread/sleep 100) (-> @app-db :owed-matrix))
-
-(defn dump-db [_] (Thread/sleep 100) @app-db)
-
-(defn reduce-owed [_]
-  (calc/reduce-debts (-> @app-db :owed-matrix)))
+(defn load-matrix [_]
+  (jdbc/with-db-transaction [tx db/db-spec] (t/find-debt tx)))
 
 (def route-map
   {:save-transaction process-transaction
-   :load-matrix load-matrix
-   :reduce-owed reduce-owed
-   :dump-db dump-db})
+   :load-matrix load-matrix})
 
 (defn api-handler
   [request]

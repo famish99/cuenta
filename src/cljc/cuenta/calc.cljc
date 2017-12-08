@@ -54,9 +54,18 @@
               (if (< o-t n-t) n-p o-p))
             [[] [0 0]])))
 
+(defn adjust-tail
+  [owed-matrix [f-p :as trace] amount]
+  (let [l-p (last trace)]
+    (if (= f-p l-p)
+      owed-matrix
+      (update-in owed-matrix [f-p l-p] #(+ (or %1 0) %2) amount))))
+
 (defn adjust-debt
   ([owed-matrix [trace [amount _]]]
-   (adjust-debt owed-matrix trace amount))
+   (-> owed-matrix
+       (adjust-debt trace amount)
+       (adjust-tail trace amount)))
   ([owed-matrix [f-p s-p :as trace] amount]
    (if (= (count trace) 2)
      (update owed-matrix f-p dissoc s-p)
@@ -68,17 +77,3 @@
     (if (= (count trace) 0)
       owed-matrix
       (recur (adjust-debt owed-matrix trace-data)))))
-
-(defn process-transaction
-  [db]
-  (let [curr-t (-> db :transactions last)
-        credit-to (or (:credit-to curr-t) (-> curr-t (get :people) first))
-        owners (:owner-matrix curr-t)
-        item-costs (calc-item-cost [(:items curr-t) owners (:tax-rate curr-t)])]
-    (->> curr-t
-         :people
-         (remove #{credit-to})
-         (map #(vector % (calc-owed [item-costs owners] %)))
-         (into {})
-         (update (:owed-matrix db) credit-to (partial merge-with +))
-         reduce-debts)))

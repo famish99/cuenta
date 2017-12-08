@@ -1,0 +1,3 @@
+{:ns cuenta.migrations.import-atom
+ :up-fn migrate-up
+ :down-fn nil}
