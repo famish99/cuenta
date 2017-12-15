@@ -2,24 +2,29 @@
   (:require [clojure.java.io :as io]
             [clojure.java.jdbc :as jdbc]
             [cognitect.transit :as transit]
-            [clojure.set :as c-set]
-            [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
-            [cuenta.db.transactions :as t]))
+            [cuenta.db.transactions :as t]
+            [cuenta.calc :as calc]))
 
 (defn load-state
-  []
-  (with-open [fp (-> "data_store.json" io/resource io/input-stream)]
+  [path]
+  (with-open [fp (-> path io/resource io/input-stream)]
     (->> (transit/reader fp :json)
          transit/read)))
 
-(def app-state (load-state))
+(def app-state (load-state "data_store.json"))
+
+(def initial-debts (load-state "initial_debts.json"))
 
 (defn migrate-up [config]
   (jdbc/with-db-transaction
     [tx (:conn config)]
+    (t/clear-transaction-cache!)
+    (->> initial-debts
+         (t/add-debts tx)
+         pprint)
     (->> app-state
          :transactions
          (filter :credit-to)
-         (map #(t/add-transaction tx %))
-         pprint)))
+         (map #(t/process-transaction tx %))
+         doall)))

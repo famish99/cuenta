@@ -59,7 +59,9 @@
    :prod
    {:jvm-opts ^:replace ["-Xmx2g" "-server"]
     :source-paths ["src/clj" "src/cljc" "env/prod"]
-    :prep-tasks ["deps" ["cljsbuild" "once" "min"]]
+    :prep-tasks ["deps"
+                 ["cljsbuild" "once" "min"]
+                 ["migratus" "migrate"]]
     :env {:production true}
     :aot :all
     :omit-source true
