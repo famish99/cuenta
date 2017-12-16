@@ -3,6 +3,7 @@
             [clojure.java.jdbc :as jdbc]
             [cognitect.transit :as transit]
             [clojure.pprint :refer [pprint]]
+            [cuenta.db :as db]
             [cuenta.db.transactions :as t]
             [cuenta.calc :as calc]))
 
@@ -19,10 +20,9 @@
 (defn migrate-up [config]
   (jdbc/with-db-transaction
     [tx (:conn config)]
-    (t/clear-transaction-cache!)
+    (db/clear-transaction-cache!)
     (->> initial-debts
-         (t/add-debts tx)
-         pprint)
+         (t/add-debts tx))
     (->> app-state
          :transactions
          (filter :credit-to)

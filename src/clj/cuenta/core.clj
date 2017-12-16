@@ -3,11 +3,9 @@
             [clojure.java.io :as io]
             [clojure.java.jdbc :as jdbc]
             [clojure.tools.logging :as log]
-            [clojure.pprint :refer [pprint]]
             [cognitect.transit :as transit]
             [ring.util.mime-type :as mime]
             [ring.util.response :as ring-r]
-            [cuenta.calc :as calc]
             [cuenta.db :as db]
             [cuenta.db.transactions :as t])
   (:import [java.io ByteArrayInputStream ByteArrayOutputStream]))
@@ -65,17 +63,14 @@
            (update :item-quantity parse-int))})
 
 (defn process-transaction
-  [params]
-  (jdbc/with-db-transaction
-    [tx db/db-spec]
-    (-> params
-        (update :items #(->> % (map adjust-items) (into {})))
-        (update :tax-rate parse-float)
-        (update :credit-to #(or % (-> params :people first)))
-        (->> (t/process-transaction tx)))))
+  [params tx]
+  (-> params
+      (update :items #(->> % (map adjust-items) (into {})))
+      (update :tax-rate parse-float)
+      (update :credit-to #(or % (-> params :people first)))
+      (->> (t/process-transaction tx))))
 
-(defn load-matrix [_]
-  (jdbc/with-db-transaction [tx db/db-spec] (t/find-debt tx)))
+(defn load-matrix [_ tx] (t/find-debt tx))
 
 (def route-map
   {:save-transaction process-transaction
@@ -92,7 +87,13 @@
                  "Cache-Control" "no-cache, no-store, must-revalidate"
                  "Pragma" "no-cache"
                  "Expires" 0}
-       :body (transit-encode (handler (-> params (dissoc :action))))}
+       :body (jdbc/with-db-transaction
+               [tx db/db-spec]
+               (db/clear-transaction-cache!)
+               (-> params
+                   (dissoc :action)
+                   (handler tx)
+                   transit-encode))}
       (ring-r/not-found "Invalid API action"))))
 
 (defn loopback-handler
@@ -109,7 +110,7 @@
 
 (defn backend-handler
   [request]
-  (println (:uri request))
+  (log/info (:uri request))
   (if-let [{:keys [handler route-params]}
            (bidi/match-route resource-routes (:uri request))]
     (if-let [handler-f (handler backend-map)]

@@ -1,26 +1,11 @@
 (ns cuenta.db.transactions
   (:require [hugsql.core :as hug]
-            [cuenta.calc :as calc]))
+            [cuenta.calc :as calc]
+            [cuenta.db :as db]))
 
 (hug/def-db-fns "cuenta/db/sql/transactions.sql")
 
 (hug/def-sqlvec-fns "cuenta/db/sql/transactions.sql")
-
-(def mem (atom {}))
-
-(defn clear-transaction-cache! [] (reset! mem {}))
-
-(defn memoize-transaction
-  "Returns a memoized version of a referentially transparent function with the
-  intention of reducing database IO for previously made queries within a
-  transaction."
-  [f]
-  (fn [& args]
-    (if-let [e (some-> @mem (get f) (find args))]
-      (val e)
-      (let [ret (apply f args)]
-        (swap! mem assoc-in [f args] ret)
-        ret))))
 
 (defn force-find-user-id
   [conn given-name]
@@ -29,7 +14,7 @@
           (:id user)
           (:generated_key (insert-user conn {:new-user [r ""]})))))
 
-(def find-user-id (memoize-transaction force-find-user-id))
+(def find-user-id (db/memoize-transaction force-find-user-id))
 
 (defn force-find-item-id
   [conn vendor-id item]
@@ -40,7 +25,7 @@
           (:id q-item)
           (:generated_key (insert-item conn r)))))
 
-(def find-item-id (memoize-transaction force-find-item-id))
+(def find-item-id (db/memoize-transaction force-find-item-id))
 
 (defn find-vendor
   [conn vendor-name]
