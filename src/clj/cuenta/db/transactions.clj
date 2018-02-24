@@ -56,11 +56,11 @@
 
 (defn add-transaction
   [conn transaction]
-  (let [vendor-id (->> (get transaction :vendor-name "unknown")
-                       (find-vendor conn))
-        n-transaction (-> transaction
+  (let [n-transaction (-> transaction
                           (update :credit-to #(find-user-id conn %))
-                          (assoc :vendor-id vendor-id))]
+                          (assoc :vendor-id
+                                 (->> (get transaction :vendor-name "unknown")
+                                      (find-vendor conn))))]
     (as-> n-transaction r
           (insert-transaction conn r)
           (hash-map :transaction-id (:generated_key r))
@@ -92,7 +92,8 @@
         tip-amount (:tip-amount curr-t)
         item-costs (calc/calc-item-cost [(:items curr-t) owners (:tax-rate curr-t)])
         total-cost (calc/total-cost 1 [item-costs tip-amount])]
-    (add-transaction conn curr-t)
+    (->> (assoc curr-t :total-cost total-cost)
+         (add-transaction conn))
     (->> curr-t
          :people
          (remove #{credit-to})
@@ -102,4 +103,11 @@
          calc/reduce-debts
          (add-debts conn))
     (find-debt conn)))
+
+(defn find-transactions
+  [conn params]
+  (as-> (select-transactions conn) r
+        (for [{:keys [transaction_id] :as item} r]
+          {transaction_id (dissoc item :transaction_id)})
+        (into {} r)))
 

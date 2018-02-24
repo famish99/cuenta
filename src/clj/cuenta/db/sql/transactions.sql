@@ -26,8 +26,8 @@ SELECT item_id as id
    AND vendor_id = :vendor-id
 
 -- :name insert-transaction :i!
-INSERT INTO transactions (tax_rate, tip_amount, credit_to, vendor_id)
-VALUES (:tax-rate, :tip-amount, :credit-to, :vendor-id)
+INSERT INTO transactions (tax_rate, tip_amount, total_cost, credit_to, vendor_id)
+VALUES (:tax-rate, :tip-amount, :total-cost, :credit-to, :vendor-id)
 
 -- :name insert-transaction-item :i!
 INSERT INTO transaction_items (item_quantity, item_id, transaction_id)
@@ -59,3 +59,21 @@ SELECT creditor, u.given_name AS debtor, amount
 	   ) AS c_join
   JOIN users AS u
     ON c_join.debtor_id = u.user_id
+
+-- :name select-transactions :?
+SELECT transaction_id,
+       tax_rate as `tax-rate`,
+       tip_amount as `tip-amount`,
+       total_cost as `total-cost`,
+       date_added as `date-added`,
+       vendor_name as `vendor-name`,
+       given_name as `given-name`,
+       surname
+  FROM transactions as t
+  JOIN vendors as v
+    ON t.vendor_id = v.vendor_id
+  JOIN users as u
+    ON t.credit_to = u.user_id
+ ORDER BY transaction_id
+  DESC
+ LIMIT 10

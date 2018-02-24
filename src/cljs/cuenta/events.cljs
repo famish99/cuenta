@@ -1,6 +1,7 @@
 (ns cuenta.events
   (:require [ajax.core :as ajax]
             [ajax.transit :as ajax-t]
+            [bidi.bidi :as bidi]
             [cljs.pprint :as pp]
             [day8.re-frame.http-fx]
             [goog.string :as g-string]
@@ -8,6 +9,7 @@
             [cuenta.calc :as calc]
             [cuenta.constants :as const]
             [cuenta.db :as db]
+            [cuenta.routes :as rt]
             [cuenta.util :as util]))
 
 (rf/reg-event-fx
@@ -24,15 +26,27 @@
 
 (rf/reg-event-fx
   :init-home
-  (fn [world _]
-    {:http-xhrio {:method :post
-                  :uri "/api/load/matrix"
-                  :params {:action :load-matrix}
-                  :timeout 5000
-                  :format (ajax/transit-request-format)
-                  :response-format (ajax/transit-response-format)
-                  :on-success [:update-owed]
-                  :on-failure [:dump-result]}}))
+  (fn [_ _]
+    {:http-xhrio [{:method :get
+                   :uri (bidi/path-for rt/route-map :load-matrix)
+                   :timeout 5000
+                   :format (ajax/url-request-format)
+                   :response-format (ajax/transit-response-format)
+                   :on-success [:update-owed]
+                   :on-failure [:dump-result]}
+                  {:method :post
+                   :uri (bidi/path-for rt/route-map :load-transactions)
+                   :params {}
+                   :timeout 5000
+                   :format (ajax/transit-request-format)
+                   :response-format (ajax/transit-response-format)
+                   :on-success [:update-transactions]
+                   :on-failure [:dump-result]}]}))
+
+(rf/reg-event-db
+  :update-transactions
+  (fn [db [_ new-list]]
+    (assoc db :transactions new-list)))
 
 (rf/reg-event-db
   :update-route
@@ -149,31 +163,27 @@
   (fn [world disp-v]
     (-> world
         (update-owed disp-v)
-        (assoc :dispatch [:load-home]))))
+        (assoc :dispatch [:load-home]
+               :http-xhrio {:method :post
+                            :uri (bidi/path-for rt/route-map :load-transactions)
+                            :params {}
+                            :timeout 5000
+                            :format (ajax/transit-request-format)
+                            :response-format (ajax/transit-response-format)
+                            :on-success [:update-transactions]
+                            :on-failure [:dump-result]}))))
 
 (rf/reg-event-fx
   :dump-result
-  (fn [world [_ result]]
+  (fn [_ [_ result]]
     (->> result
          (.log js/console))))
-
-(rf/reg-event-fx
-  :dump-backend
-  (fn [world _]
-    {:http-xhrio {:method :post
-                  :uri "/api/dump"
-                  :params {:action :dump-db}
-                  :timeout 5000
-                  :format (ajax/transit-request-format)
-                  :response-format (ajax/transit-response-format)
-                  :on-success [:dump-result]
-                  :on-failure [:dump-result]}}))
 
 (rf/reg-event-fx
   :save-transaction
   (fn [world _]
     {:http-xhrio {:method :post
-                  :uri "/api/save/transaction"
+                  :uri (bidi/path-for rt/route-map :save-transaction)
                   :params (-> world
                               :db
                               (select-keys (keys db/transaction-defaults))

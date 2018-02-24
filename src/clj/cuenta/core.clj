@@ -8,13 +8,16 @@
             [ring.util.response :as ring-r]
             [cuenta.calc :as calc]
             [cuenta.db :as db]
-            [cuenta.db.transactions :as t])
+            [cuenta.db.transactions :as t]
+            [cuenta.routes :as routes])
   (:import [java.io ByteArrayInputStream ByteArrayOutputStream]))
 
 (defn transit-decode
   [input-stream & {:keys [msg-type] :or {msg-type :json}}]
-  (-> (transit/reader input-stream msg-type)
-      transit/read))
+  (when (> (.available input-stream) 0)
+    (-> input-stream
+        (transit/reader msg-type)
+        transit/read)))
 
 (defn transit-encode
   [payload & {:keys [msg-type] :or {msg-type :json}}]
@@ -23,15 +26,7 @@
     (transit/write writer payload)
     (ByteArrayInputStream. (.toByteArray output-stream))))
 
-(def resource-routes
-  ["/" {#{"" "index"} :index
-        [[#"(css|js|static)" :resource-type]] {[[#".*" :resource-name]] :static-internal}
-        "api/dump" :api
-        "api/load/matrix" :api
-        "api/save/transaction" :api
-        "loopback" :loopback}])
-
-(defn index-handler [request]
+(defn index-handler [_]
   "Handler for serving the base HTML"
   (-> (ring-r/resource-response "index.html")
       (assoc-in [:headers "Content-Type"] "text/html; charset-utf-8")))
@@ -49,7 +44,7 @@
       response
       (ring-r/not-found "Resource not found"))))
 
-(defn not-found-handler [request]
+(defn not-found-handler [_]
   "Handler to return 404 responses"
   (ring-r/not-found "Error 404: Could not find resource"))
 
@@ -60,7 +55,7 @@
            (update :item-quantity calc/cast-int))})
 
 (defn process-transaction
-  [params tx]
+  [tx params]
   (-> params
       (update :items #(->> % (map adjust-items) (into {})))
       (update :tax-rate calc/cast-float)
@@ -68,31 +63,23 @@
       (update :credit-to #(or % (-> params :people first)))
       (->> (t/process-transaction tx))))
 
-(defn load-matrix [_ tx] (t/find-debt tx))
-
-(def route-map
-  {:save-transaction process-transaction
-   :load-matrix load-matrix})
-
-(defn api-handler
-  [request]
-  (let [params (transit-decode (:body request))
-        handler (some->> params :action (get route-map))]
-    (if handler
-      {:status 200
-       :headers {"Content-Type" "application/transit+json"
-                 "Access-Control-Allow-Methods" "POST"
-                 "Cache-Control" "no-cache, no-store, must-revalidate"
-                 "Pragma" "no-cache"
-                 "Expires" 0}
-       :body (jdbc/with-db-transaction
-               [tx db/db-spec]
-               (db/clear-transaction-cache!)
-               (-> params
-                   (dissoc :action)
-                   (handler tx)
-                   transit-encode))}
-      (ring-r/not-found "Invalid API action"))))
+(defn gen-api-handler
+  [handler]
+  (fn [request]
+    {:status 200
+     :headers {"Content-Type" "application/transit+json"
+               "Access-Control-Allow-Methods" "POST"
+               "Cache-Control" "no-cache, no-store, must-revalidate"
+               "Pragma" "no-cache"
+               "Expires" 0}
+     :body (jdbc/with-db-transaction
+             [tx db/db-spec]
+             (db/clear-transaction-cache!)
+             (->> request
+                  :body
+                  transit-decode
+                  (handler tx)
+                  transit-encode))}))
 
 (defn loopback-handler
   [request]
@@ -103,14 +90,16 @@
 (def backend-map
   {:index index-handler
    :static-internal int-handler
-   :api api-handler
+   :load-transactions (gen-api-handler t/find-transactions)
+   :save-transaction (gen-api-handler process-transaction)
+   :load-matrix (gen-api-handler t/find-debt)
    :loopback loopback-handler})
 
 (defn backend-handler
   [request]
   (log/info (:uri request))
   (if-let [{:keys [handler route-params]}
-           (bidi/match-route resource-routes (:uri request))]
+           (bidi/match-route routes/route-map (:uri request))]
     (if-let [handler-f (handler backend-map)]
       (handler-f (assoc request :route-params route-params))
       ; else

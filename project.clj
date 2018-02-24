@@ -4,6 +4,7 @@
                  [bidi "2.0.12"]
                  [cljs-ajax "0.7.2"]
                  [com.cognitect/transit-clj "0.8.300"]
+                 [com.andrewmcveigh/cljs-time "0.5.2"]
                  [com.layerware/hugsql "0.4.8"]
                  [org.clojure/java.jdbc "0.7.3"]
                  [migratus "1.0.0"]

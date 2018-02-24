@@ -38,8 +38,8 @@
        [:tr
         [:td [:b "Claimed Total"]]
         [:td [:b (when (> (- total-cost claimed-total) 0.01) {:style {:color :red}})
-              (g-string/format "$%.02f" claimed-total)]]]
-       ]]]))
+              (g-string/format "$%.02f" claimed-total)]]]]]]))
+
 
 (defn item-checkbox
   [person i-pos]
@@ -158,8 +158,8 @@
        [:input.form-control
         {:type :text
          :value vendor-name
-         :on-change #(rf/dispatch [:update-vendor-name (.-target.value %)])}]]]]
-  ))
+         :on-change #(rf/dispatch [:update-vendor-name (.-target.value %)])}]]]]))
+
 
 (defn order-panel
   []
@@ -221,8 +221,31 @@
             [:td {:style (if (= creditor-name debtor-name)
                            {:text-align :right :background :gray}
                            {:text-align :right})}
-             (if-let [debt (get debts debtor-name)]
-               (g-string/format "$%.02f" debt))])])
+             (when-let [debt (get debts debtor-name)]
+               (g-string/format "$%.02f" debt))])])]]]))
+
+(defn transaction-entry
+  [t-id]
+  [:tr
+   [:td @(rf/subscribe [:t-item-vendor t-id])]
+   [:td @(rf/subscribe [:t-item-purchaser t-id])]
+   [:td @(rf/subscribe [:t-item-cost t-id])]
+   [:td @(rf/subscribe [:t-item-date t-id])]])
+
+(defn recent-transactions []
+  (let [t-list @(rf/subscribe [:recent-transactions])]
+    [bs/panel {:header "Recent Transactions"}
+     [bs/table
+      [:thead
+       [:tr
+        [:th "Vendor"]
+        [:th "Purchaser"]
+        [:th "Cost"]
+        [:th "Date Added"]]]
+      [:tbody
+       (for [t-id t-list]
+         ^{:key (g-string/format "transaction-row-%d" t-id)}
+         [transaction-entry t-id])
        [:tr
         [:td
          [bs/button {:bs-style :primary
@@ -233,7 +256,10 @@
   [bs/grid {:fluid false}
    [bs/row
     [bs/col {:md 12}
-     [people-matrix]]]])
+     [people-matrix]]]
+   [bs/row
+    [bs/col {:md 12}
+     [recent-transactions]]]])
 
 (def view-map
   {:home home
@@ -248,10 +274,5 @@
        [bs/navbar-brand
         [bs/button {:bs-style :link
                     :on-click #(rf/dispatch [:load-home])}
-         "Split da Bill"]]]
-      [bs/navbar-collapse
-       [bs/nav {:pull-right true}
-        (when config/debug?
-          [bs/nav-item {:event-key "dump"
-                        :on-click #(rf/dispatch [:dump-backend])} "DUMP ME"])]]]
+         "Split da Bill"]]]]
      [(get view-map route home)]]))

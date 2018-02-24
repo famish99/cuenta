@@ -1,6 +1,9 @@
 (ns cuenta.subs
   (:require-macros [reagent.ratom :refer [reaction]])
   (:require [clojure.string :refer [blank?]]
+            [cljs-time.coerce :as c-time-c]
+            [cljs-time.format :as c-time-f]
+            [goog.string :as g-string]
             [re-frame.core :as rf]
             [cuenta.calc :as calc]
             [cuenta.constants :as const]
@@ -107,7 +110,8 @@
   :item-price
   :<- [:items]
   (fn [items [_ id]]
-    (let [{:keys [item-name item-price] :or {item-price const/default-price}} (get items id)]
+    (let [{:keys [item-name item-price]
+           :or {item-price const/default-price}} (get items id)]
       {:valid-state (when (and (js/isNaN (js/parseFloat item-price))
                              (util/not-blank? item-price))
                       :error)
@@ -118,7 +122,8 @@
   :item-quantity
   :<- [:items]
   (fn [items [_ id]]
-    (let [{:keys [item-name item-quantity] :or {item-quantity const/default-quantity}} (get items id)]
+    (let [{:keys [item-name item-quantity]
+           :or {item-quantity const/default-quantity}} (get items id)]
       {:valid-state (when (and (js/isNaN (js/parseInt item-quantity))
                             (util/not-blank? item-quantity))
                       :error)
@@ -135,9 +140,8 @@
 
 (rf/reg-sub
   :item-owned?
-  :<- [:people]
   :<- [:owners]
-  (fn [[people owners] [_ person-name item-id]]
+  (fn [owners [_ person-name item-id]]
     (get-in owners [person-name item-id] false)))
 
 (rf/reg-sub
@@ -190,3 +194,54 @@
          (flatten)
          (into (sorted-set)))))
 
+(rf/reg-sub
+  :transactions
+  (fn [db _]
+    (:transactions db)))
+
+(rf/reg-sub
+  :recent-transactions
+  :<- [:transactions]
+  (fn [t-list _]
+    (->> t-list
+         (into (sorted-map-by >))
+         (take 5)
+         keys)))
+
+(rf/reg-sub
+  :t-item-vendor
+  :<- [:transactions]
+  (fn [t-list [_ t-id]]
+    (-> t-list
+        (get t-id)
+        :vendor-name)))
+
+(rf/reg-sub
+  :t-item-purchaser
+  :<- [:transactions]
+  (fn [t-list [_ t-id]]
+    (-> t-list
+        (get t-id)
+        :given-name)))
+
+(rf/reg-sub
+  :t-item-cost
+  :<- [:transactions]
+  (fn [t-list [_ t-id]]
+    (-> t-list
+        (get t-id)
+        :total-cost
+        (->> (g-string/format "$%.2f")))))
+
+(def t-item-date-formatter
+  (c-time-f/formatter "MMM d"))
+
+(rf/reg-sub
+  :t-item-date
+  :<- [:transactions]
+  (fn [t-list [_ t-id]]
+    (-> t-list
+        (get t-id)
+        :date-added
+        (c-time-c/from-date)
+        (->> (c-time-f/unparse t-item-date-formatter)))))

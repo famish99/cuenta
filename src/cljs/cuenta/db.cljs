@@ -11,4 +11,6 @@
    :credit-to nil})
 
 (def default-db
-  {:route :home :owed-matrix {}})
+  {:route :home
+   :owed-matrix {}
+   :transactions {}})
