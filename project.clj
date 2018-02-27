@@ -57,9 +57,6 @@
    :prod
    {:jvm-opts ^:replace ["-Xmx2g" "-server"]
     :source-paths ["src/clj" "src/cljc" "env/prod"]
-    :prep-tasks ["deps"
-                 ["cljsbuild" "once" "min"]
-                 ["migratus" "migrate"]]
     :env {:production true}
     :aot :all
     :omit-source true
@@ -88,5 +85,12 @@
                     :optimizations   :advanced
                     :parallel-build       true
                     :closure-defines {goog.DEBUG false}
-                    :pretty-print    false}}]})
+                    :pretty-print    false}}]}
+
+  :aliases {"run-jvm-server" ["do"
+                              ["deps"]
+                              ["clean"]
+                              ["with-profile" "prod" "cljsbuild" "once" "min"]
+                              ["with-profile" "migratus" "migrate"]
+                              ["with-profile" "prod" "run"]]})
 

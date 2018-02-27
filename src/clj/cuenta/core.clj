@@ -1,6 +1,5 @@
 (ns cuenta.core
   (:require [bidi.bidi :as bidi]
-            [clojure.java.io :as io]
             [clojure.java.jdbc :as jdbc]
             [clojure.tools.logging :as log]
             [cognitect.transit :as transit]

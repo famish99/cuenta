@@ -1,12 +1,9 @@
 (ns cuenta.events
   (:require [ajax.core :as ajax]
-            [ajax.transit :as ajax-t]
             [bidi.bidi :as bidi]
             [cljs.pprint :as pp]
             [day8.re-frame.http-fx]
-            [goog.string :as g-string]
             [re-frame.core :as rf]
-            [cuenta.calc :as calc]
             [cuenta.constants :as const]
             [cuenta.db :as db]
             [cuenta.routes :as rt]
@@ -186,8 +183,7 @@
                   :uri (bidi/path-for rt/route-map :save-transaction)
                   :params (-> world
                               :db
-                              (select-keys (keys db/transaction-defaults))
-                              (assoc :action (-> world :event first)))
+                              (select-keys (keys db/transaction-defaults)))
                   :timeout 5000
                   :format (ajax/transit-request-format)
                   :response-format (ajax/transit-response-format)

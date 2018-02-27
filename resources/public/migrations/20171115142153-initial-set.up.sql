@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
 --;;
 CREATE TABLE IF NOT EXISTS vendors (
     vendor_id INT NOT NULL AUTO_INCREMENT,
-    vendor_name VARCHAR(16) UNIQUE NOT NULL,
+    vendor_name VARCHAR(64) UNIQUE NOT NULL,
     PRIMARY KEY (vendor_id)
     )
     ENGINE = InnoDB;

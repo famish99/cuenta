@@ -1,9 +1,7 @@
 (ns cuenta.views
   (:require [goog.string :as g-string]
             goog.string.format
-            [reagent.core :as r]
             [re-frame.core :as rf]
-            [cuenta.config :as config]
             [cuenta.constants :as const]
             [cuenta.components.bootstrap :as bs]))
 
@@ -57,35 +55,39 @@
         item-quantity @(rf/subscribe [:item-quantity i-pos])
         item-taxable @(rf/subscribe [:item-taxable i-pos])]
     [:tr
-     [:td [:input.form-control
-           {:type :text
-            :value item-name
-            :on-blur #(rf/dispatch [:cast-item :string "" i-pos :item-name])
-            :on-change #(rf/dispatch [:update-item (.-target.value %) i-pos :item-name])}]]
-     [:td [bs/form-group
-           {:validation-state (:valid-state item-price)}
-           [bs/input-group
-            [bs/input-group-addon "$"]
-            [:input.form-control
-             {:type :text
-              :value (:value item-price)
-              :disabled (:disabled? item-price)
-              :on-blur #(rf/dispatch [:cast-item :money const/default-price i-pos :item-price])
-              :on-change #(rf/dispatch [:update-item (.-target.value %) i-pos :item-price])}]
-            [bs/form-control-feedback]]]]
-     [:td [bs/form-group
-           {:validation-state (:valid-state item-quantity)}
-           [:input.form-control
-            {:type :text
-             :value (:value item-quantity)
-             :disabled (:disabled? item-quantity)
-             :on-blur #(rf/dispatch [:cast-item :int "1" i-pos :item-quantity])
-             :on-change #(rf/dispatch [:update-item (.-target.value %) i-pos :item-quantity])}]
-           [bs/form-control-feedback]]]
-     [:td [bs/checkbox
-           {:checked (:value item-taxable)
-            :disabled (:disabled? item-taxable)
-            :on-change #(rf/dispatch [:update-item (.-target.checked %) i-pos :item-taxable])}]]
+     [:td.col-xs-4
+      [:input.form-control
+       {:type :text
+        :value item-name
+        :on-blur #(rf/dispatch [:cast-item :string "" i-pos :item-name])
+        :on-change #(rf/dispatch [:update-item (.-target.value %) i-pos :item-name])}]]
+     [:td.col-xs-2
+      [bs/form-group
+       {:validation-state (:valid-state item-price)}
+       [bs/input-group
+        [bs/input-group-addon "$"]
+        [:input.form-control
+         {:type :text
+          :value (:value item-price)
+          :disabled (:disabled? item-price)
+          :on-blur #(rf/dispatch [:cast-item :money const/default-price i-pos :item-price])
+          :on-change #(rf/dispatch [:update-item (.-target.value %) i-pos :item-price])}]
+        [bs/form-control-feedback]]]]
+     [:td.col-xs-1
+      [bs/form-group
+       {:validation-state (:valid-state item-quantity)}
+       [:input.form-control
+        {:type :text
+         :value (:value item-quantity)
+         :disabled (:disabled? item-quantity)
+         :on-blur #(rf/dispatch [:cast-item :int "1" i-pos :item-quantity])
+         :on-change #(rf/dispatch [:update-item (.-target.value %) i-pos :item-quantity])}]
+       [bs/form-control-feedback]]]
+     [:td
+      [bs/checkbox
+       {:checked (:value item-taxable)
+        :disabled (:disabled? item-taxable)
+        :on-change #(rf/dispatch [:update-item (.-target.checked %) i-pos :item-taxable])}]]
      (for [person people]
        ^{:key (g-string/format "row-%d-person-%s" i-pos person)}
        [item-checkbox person i-pos])]))
@@ -149,16 +151,12 @@
 (defn vendor-name-field
   []
   (let [vendor-name @(rf/subscribe [:vendor-name-field])]
-    [bs/grid
-     [bs/row
-      [bs/col {:md 1 :style {:padding-top 8 :padding-left 8}}
-       [bs/form-group
-        [bs/control-label "Vendor"]]]
-      [bs/col {:md 4}
-       [:input.form-control
-        {:type :text
-         :value vendor-name
-         :on-change #(rf/dispatch [:update-vendor-name (.-target.value %)])}]]]]))
+    [:tr
+     [:th
+      [:input.form-control
+       {:type :text
+        :value vendor-name
+        :on-change #(rf/dispatch [:update-vendor-name (.-target.value %)])}]]]))
 
 
 (defn order-panel
@@ -166,9 +164,12 @@
   (let [people @(rf/subscribe [:people])
         count-items @(rf/subscribe [:count-new-items])]
     [bs/panel {:header "Order Info"}
-     [vendor-name-field]
      [bs/table
       [:thead
+       [:tr
+        [:th
+         "Vendor"]]
+       [vendor-name-field]
        [:tr
         [:th "Item"]
         [:th "Price"]
