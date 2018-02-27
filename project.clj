@@ -87,10 +87,10 @@
                     :closure-defines {goog.DEBUG false}
                     :pretty-print    false}}]}
 
-  :aliases {"run-jvm-server" ["do"
-                              ["deps"]
-                              ["clean"]
-                              ["with-profile" "prod" "cljsbuild" "once" "min"]
-                              ["with-profile" "migratus" "migrate"]
-                              ["with-profile" "prod" "run"]]})
+  :aliases {"run-server" ["do"
+                          ["deps"]
+                          ["clean"]
+                          ["with-profile" "prod" "cljsbuild" "once" "min"]
+                          ["with-profile" "prod" "migratus" "migrate"]
+                          ["with-profile" "prod" "run"]]})
 
