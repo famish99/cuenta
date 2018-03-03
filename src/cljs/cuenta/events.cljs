@@ -63,7 +63,7 @@
     (assoc db :transaction-owner new-value)))
 
 (defn adjust-item-owners
-  [{:keys [people owner-matrix] :as db}]
+  [{:keys [people] :as db}]
   (update db :owner-matrix select-keys people))
 
 (defn adjust-items-owned

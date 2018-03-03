@@ -51,7 +51,7 @@
   [[key value-map]]
   {key (-> value-map
            (update :item-price calc/cast-float)
-           (update :item-quantity calc/cast-int))})
+           (update :item-quantity calc/cast-int :default 1))})
 
 (defn process-transaction
   [tx params]
