@@ -105,7 +105,7 @@
     (find-debt conn)))
 
 (defn find-transactions
-  [conn params]
+  [conn _]
   (as-> (select-transactions conn) r
         (for [{:keys [transaction_id] :as item} r]
           {transaction_id (dissoc item :transaction_id)})

@@ -71,8 +71,7 @@
           :value (:value item-price)
           :disabled (:disabled? item-price)
           :on-blur #(rf/dispatch [:cast-item :money const/default-price i-pos :item-price])
-          :on-change #(rf/dispatch [:update-item (.-target.value %) i-pos :item-price])}]
-        [bs/form-control-feedback]]]]
+          :on-change #(rf/dispatch [:update-item (.-target.value %) i-pos :item-price])}]]]]
      [:td.col-xs-1
       [bs/form-group
        {:validation-state (:valid-state item-quantity)}
@@ -81,8 +80,7 @@
          :value (:value item-quantity)
          :disabled (:disabled? item-quantity)
          :on-blur #(rf/dispatch [:cast-item :int "1" i-pos :item-quantity])
-         :on-change #(rf/dispatch [:update-item (.-target.value %) i-pos :item-quantity])}]
-       [bs/form-control-feedback]]]
+         :on-change #(rf/dispatch [:update-item (.-target.value %) i-pos :item-quantity])}]]]
      [:td
       [bs/checkbox
        {:checked (:value item-taxable)
@@ -94,7 +92,8 @@
 
 (defn tax-rate-field
   []
-  (let [tax-rate @(rf/subscribe [:tax-rate-field])]
+  (let [tax-rate @(rf/subscribe [:tax-rate-field])
+        tax-amount @(rf/subscribe [:tax-amount])]
     [:tr
      [:td [bs/control-label "Tax Rate"]]
      [:td
@@ -106,10 +105,10 @@
           :value (:value tax-rate)
           :on-blur #(rf/dispatch [:cast-tax-rate])
           :on-change #(rf/dispatch [:update-tax-rate (.-target.value %)])}]
-        [bs/input-group-addon "%"]
-        [bs/form-control-feedback]]]]]))
+        [bs/input-group-addon "%"]]]]
+     [:td {:style {:padding-top "14px"}} [:b (g-string/format "= $%.02f" tax-amount)]]]))
 
-(defn tip-rate-field
+(defn tip-amount-field
   []
   (let [tip-amount @(rf/subscribe [:tip-amount-field])]
     [:tr
@@ -183,7 +182,7 @@
          ^{:key (g-string/format "item-row-%d" i-pos)}
          [item-entry i-pos people])
        [tax-rate-field]
-       [tip-rate-field]
+       [tip-amount-field]
        [total-cost-field]
        [credit-to-field people]
        [:tr

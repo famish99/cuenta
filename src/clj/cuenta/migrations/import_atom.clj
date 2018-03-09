@@ -4,8 +4,7 @@
             [cognitect.transit :as transit]
             [clojure.pprint :refer [pprint]]
             [cuenta.db :as db]
-            [cuenta.db.transactions :as t]
-            [cuenta.calc :as calc]))
+            [cuenta.db.transactions :as t]))
 
 (defn load-state
   [path]

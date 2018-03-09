@@ -24,6 +24,7 @@ SELECT item_id as id
   FROM items
  WHERE UPPER (item_name) = UPPER (:item-name)
    AND vendor_id = :vendor-id
+   AND item_price = :item-price
 
 -- :name insert-transaction :i!
 INSERT INTO transactions (tax_rate, tip_amount, total_cost, credit_to, vendor_id)

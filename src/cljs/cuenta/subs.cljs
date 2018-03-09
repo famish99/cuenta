@@ -158,6 +158,15 @@
   calc/calc-item-cost)
 
 (rf/reg-sub
+  :tax-amount
+  :<- [:item-costs]
+  :<- [:tax-rate]
+  (fn [[costs tax-rate] _]
+    (-> tax-rate
+        float
+        (* 0.01 (calc/total-cost 1 [costs 0])))))
+
+(rf/reg-sub
   :total-cost
   :<- [:item-costs]
   :<- [:tip-amount]
