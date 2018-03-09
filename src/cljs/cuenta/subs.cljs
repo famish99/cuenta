@@ -159,12 +159,14 @@
 
 (rf/reg-sub
   :tax-amount
-  :<- [:item-costs]
+  :<- [:item-cost-map]
   :<- [:tax-rate]
-  (fn [[costs tax-rate] _]
-    (-> tax-rate
-        float
-        (* 0.01 (calc/total-cost 1 [costs 0])))))
+  (fn [[items tax-rate] _]
+    (->> (for [[_ item] items
+               :when (-> item :item-taxable false? not)]
+          (calc/item-calc item tax-rate))
+         (apply +)
+         (* (float tax-rate) 0.01))))
 
 (rf/reg-sub
   :total-cost
