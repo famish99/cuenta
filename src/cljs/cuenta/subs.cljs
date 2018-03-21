@@ -206,6 +206,11 @@
          (into (sorted-set)))))
 
 (rf/reg-sub
+  :transaction-id
+  (fn [db _]
+    (:transaction-id db)))
+
+(rf/reg-sub
   :transactions
   (fn [db _]
     (:transactions db)))
@@ -256,3 +261,8 @@
         :date-added
         (c-time-c/from-date)
         (->> (c-time-f/unparse t-item-date-formatter)))))
+
+(rf/reg-sub
+  :t-details
+  (fn [db [_ t-id]]
+    (get-in db [:transactions t-id])))

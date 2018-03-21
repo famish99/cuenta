@@ -77,4 +77,29 @@ SELECT transaction_id,
     ON t.credit_to = u.user_id
  ORDER BY transaction_id
   DESC
- LIMIT 10
+ LIMIT
+       /*~ (if (:r-limit params) */
+       :r-limit
+       /*~*/
+       10
+       /*~ ) ~*/
+
+-- :name select-transaction-items :?
+SELECT t_i.t_item_id as `item-id`,
+       item_name as `item-name`,
+       item_price as `item-price`,
+       item_taxable as `item-taxable`,
+       item_quantity as `item-quantity`
+  FROM transaction_items as t_i
+  JOIN items as i
+    ON t_i.item_id = i.item_id
+ WHERE t_i.transaction_id = :transaction-id
+
+-- :name select-transaction-owners :?
+SELECT item_id as `item-id`,
+       given_name as `given-name`,
+       surname
+  FROM transaction_owners as t_o
+  JOIN users as u
+    ON t_o.user_id = u.user_id
+ WHERE t_o.transaction_id = :transaction-id

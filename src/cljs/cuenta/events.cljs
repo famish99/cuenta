@@ -19,6 +19,7 @@
   :load-home
   (fn [db _]
     (-> (apply dissoc db (keys db/transaction-defaults))
+        (dissoc :transaction-id)
         (assoc :route :home))))
 
 (rf/reg-event-fx
@@ -54,8 +55,33 @@
   :add-transaction
   (fn [db _]
     (-> db
-        (assoc :route :transaction)
+        (assoc :route :add-transaction)
         (merge db/transaction-defaults))))
+
+(defn view-transaction
+  [{:keys [db]} [_ t-id]]
+  (-> (when-not (get-in db [:transactions t-id :items])
+        {:http-xhrio
+         {:method :get
+          :uri (bidi/path-for rt/route-map
+                              :load-transaction
+                              :transaction-id t-id)
+          :timeout 5000
+          :format (ajax/url-request-format)
+          :response-format (ajax/transit-response-format)
+          :on-success [:update-transaction t-id]
+          :on-failure [:dump-result]}})
+      (merge {:db (assoc db :route :view-transaction
+                            :transaction-id t-id)})))
+
+(rf/reg-event-fx
+  :view-transaction
+  view-transaction)
+
+(rf/reg-event-db
+  :update-transaction
+  (fn [db [_ t-id result]]
+    (assoc-in db [:transactions t-id :items] result)))
 
 (rf/reg-event-db
   :update-creditor

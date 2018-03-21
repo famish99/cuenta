@@ -1,5 +1,6 @@
 (ns cuenta.db.transactions
   (:require [hugsql.core :as hug]
+            [clojure.tools.logging :as log]
             [cuenta.calc :as calc]
             [cuenta.db :as db]))
 
@@ -111,3 +112,27 @@
           {transaction_id (dissoc item :transaction_id)})
         (into {} r)))
 
+(defn group-by-id
+  [key coll]
+  (->> (for [item coll]
+        {(get item key) (dissoc item key)})
+       (into {})))
+
+(defn group-owners
+  [conn params]
+  (as-> (select-transaction-owners conn params) r
+        (for [item r]
+         {(:item-id item) [(select-keys item [:given-name])]})
+        (apply merge-with into r)
+        (for [[k v] r] {k {:owners v}})
+        (into {} r)))
+       ;(group-by first)))
+       ;(apply merge-with conj)))
+
+(defn find-transaction
+  [conn params]
+  (let [query-params (select-keys params [:transaction-id])
+        item-owners (group-owners conn query-params)]
+    (->> (select-transaction-items conn query-params)
+         (group-by-id :item-id)
+         (merge-with conj item-owners))))

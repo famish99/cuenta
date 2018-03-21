@@ -191,7 +191,7 @@
                      :on-click #(rf/dispatch [:save-transaction])}
           [bs/glyphicon {:glyph :glyphicon-floppy-disk}] "Save"]]]]]]))
 
-(defn transaction-view []
+(defn add-transaction []
   [bs/grid {:fluid false}
    [bs/row
     [bs/col {:md 6}
@@ -227,7 +227,10 @@
 (defn transaction-entry
   [t-id]
   [:tr
-   [:td @(rf/subscribe [:t-item-vendor t-id])]
+   [:td [:a.make-link
+         {:on-click #(rf/dispatch [:view-transaction t-id])
+          :tab-index 0}
+         @(rf/subscribe [:t-item-vendor t-id])]]
    [:td @(rf/subscribe [:t-item-purchaser t-id])]
    [:td @(rf/subscribe [:t-item-cost t-id])]
    [:td @(rf/subscribe [:t-item-date t-id])]])
@@ -252,6 +255,43 @@
                      :on-click #(rf/dispatch [:add-transaction])}
           [bs/glyphicon {:glyph :glyphicon-plus}] "Add Transaction"]]]]]]))
 
+(defn view-transaction []
+  (let [t-id @(rf/subscribe [:transaction-id])
+        t-details @(rf/subscribe [:t-details t-id])]
+    [bs/grid {:fluid false}
+     [bs/panel {:header (:vendor-name t-details)}
+      [bs/table
+       [:thead
+        [:tr
+         [:th "Item"]
+         [:th "Price"]
+         [:th "Quantity"]
+         [:th "Taxable"]
+         [:th "Owners"]]]
+       [:tbody
+        (for [[i-id {:keys [item-name item-price item-quantity item-taxable owners]}]
+              (:items t-details)]
+          ^{:key (g-string/format "item-row-%d" i-id)}
+          [:tr
+           [:td item-name]
+           [:td (g-string/format "$%.2f" item-price)]
+           [:td item-quantity]
+           [:td [bs/glyphicon {:glyph (if item-taxable :ok :remove)}]]
+           [:td (->> owners
+                     (map :given-name)
+                     (interpose ", ")
+                     (apply str))]])
+        [:tr
+         [:td [:b "Tip Amount"]]
+         [:td (g-string/format "$%.2f" (:tip-amount t-details))]]
+        [:tr
+         [:td [:b "Total"]]
+         [:td (g-string/format "$%.2f" (:total-cost t-details))]]
+        [:tr
+         [:td [:b "Credit to"]]
+         [:td (:given-name t-details)]]]]]]))
+
+
 (defn home []
   [bs/grid {:fluid false}
    [bs/row
@@ -263,7 +303,8 @@
 
 (def view-map
   {:home home
-   :transaction transaction-view})
+   :add-transaction add-transaction
+   :view-transaction view-transaction})
 
 (defn router
   []

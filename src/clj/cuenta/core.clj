@@ -67,7 +67,7 @@
   (fn [request]
     {:status 200
      :headers {"Content-Type" "application/transit+json"
-               "Access-Control-Allow-Methods" "POST"
+               ;"Access-Control-Allow-Methods" "POST"
                "Cache-Control" "no-cache, no-store, must-revalidate"
                "Pragma" "no-cache"
                "Expires" 0}
@@ -77,6 +77,7 @@
              (->> request
                   :body
                   transit-decode
+                  (merge (:route-params request))
                   (handler tx)
                   transit-encode))}))
 
@@ -89,6 +90,7 @@
 (def backend-map
   {:index index-handler
    :static-internal int-handler
+   :load-transaction (gen-api-handler t/find-transaction)
    :load-transactions (gen-api-handler t/find-transactions)
    :save-transaction (gen-api-handler process-transaction)
    :load-matrix (gen-api-handler t/find-debt)
