@@ -208,7 +208,7 @@
 (rf/reg-sub
   :transaction-id
   (fn [db _]
-    (:transaction-id db)))
+    (:view-transaction-id db)))
 
 (rf/reg-sub
   :transactions
@@ -220,9 +220,25 @@
   :<- [:transactions]
   (fn [t-list _]
     (->> t-list
-         (into (sorted-map-by >))
-         (take 5)
-         keys)))
+         keys
+         (sort >)
+         (take 5))))
+
+(rf/reg-sub
+  :last-id
+  (fn [db _]
+    (:last-id db)))
+
+(rf/reg-sub
+  :transaction-list
+  :<- [:transactions]
+  :<- [:last-id]
+  (fn [[t-list last-id] _]
+    (->> t-list
+         keys
+         (filter (partial >= last-id))
+         (sort >)
+         (take 10))))
 
 (rf/reg-sub
   :t-item-vendor

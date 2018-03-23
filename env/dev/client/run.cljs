@@ -9,11 +9,11 @@
 
 (defn mount-root []
   (re-frame/clear-subscription-cache!)
+  (enable-re-frisk!)
   (reagent/render [views/router]
                   (.getElementById js/document "app")))
 
 (defn ^:export init []
   (re-frame/dispatch-sync [:initialize-db])
   (enable-console-print!)
-  (enable-re-frisk!)
   (mount-root))

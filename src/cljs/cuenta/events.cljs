@@ -9,42 +9,43 @@
             [cuenta.routes :as rt]
             [cuenta.util :as util]))
 
+(def load-home-fx
+  [{:method :get
+    :uri (bidi/path-for rt/route-map :load-matrix)
+    :timeout 5000
+    :format (ajax/url-request-format)
+    :response-format (ajax/transit-response-format)
+    :on-success [:update-owed]
+    :on-failure [:dump-result]}
+   {:method :get
+    :uri (bidi/path-for rt/route-map :load-recent-transactions)
+    :timeout 5000
+    :format (ajax/url-request-format)
+    :response-format (ajax/transit-response-format)
+    :on-success [:update-transactions]
+    :on-failure [:dump-result]}])
+
 (rf/reg-event-fx
   :initialize-db
   (fn [_ _]
     {:db db/default-db
-     :dispatch [:init-home]}))
-
-(rf/reg-event-db
-  :load-home
-  (fn [db _]
-    (-> (apply dissoc db (keys db/transaction-defaults))
-        (dissoc :transaction-id)
-        (assoc :route :home))))
+     :http-xhrio load-home-fx}))
 
 (rf/reg-event-fx
-  :init-home
-  (fn [_ _]
-    {:http-xhrio [{:method :get
-                   :uri (bidi/path-for rt/route-map :load-matrix)
-                   :timeout 5000
-                   :format (ajax/url-request-format)
-                   :response-format (ajax/transit-response-format)
-                   :on-success [:update-owed]
-                   :on-failure [:dump-result]}
-                  {:method :post
-                   :uri (bidi/path-for rt/route-map :load-transactions)
-                   :params {}
-                   :timeout 5000
-                   :format (ajax/transit-request-format)
-                   :response-format (ajax/transit-response-format)
-                   :on-success [:update-transactions]
-                   :on-failure [:dump-result]}]}))
+  :load-home
+  (fn [{:keys [db]} _]
+    {:db (-> (apply dissoc db (keys db/transaction-defaults))
+             (dissoc :view-transaction-id :last-id)
+             (assoc :route :home))
+     :http-xhrio load-home-fx}))
 
 (rf/reg-event-db
   :update-transactions
   (fn [db [_ new-list]]
-    (assoc db :transactions new-list)))
+    (->> db
+         :transactions
+         (merge new-list)
+         (assoc db :transactions))))
 
 (rf/reg-event-db
   :update-route
@@ -72,11 +73,67 @@
           :on-success [:update-transaction t-id]
           :on-failure [:dump-result]}})
       (merge {:db (assoc db :route :view-transaction
-                            :transaction-id t-id)})))
+                            :view-transaction-id t-id)})))
 
 (rf/reg-event-fx
   :view-transaction
   view-transaction)
+
+(defn get-transaction-list-keys
+  [db]
+  (->> db
+       :transactions
+       keys
+       (sort >)))
+
+(defn transaction-list
+  [{:keys [db]} & _]
+  (let [t-list (get-transaction-list-keys db)
+        last-id (or (:last-id db) (first t-list))]
+    (-> (when (>= (last t-list) last-id)
+          {:http-xhrio
+           {:method :get
+            :uri (bidi/path-for rt/route-map
+                                :load-transactions
+                                :last-id last-id)
+            :timeout 5000
+            :format (ajax/url-request-format)
+            :response-format (ajax/transit-response-format)
+            :on-success [:update-transactions]
+            :on-failure [:dump-result]}})
+        (merge {:db (assoc db :route :view-transactions
+                              :last-id last-id)}))))
+
+(rf/reg-event-fx
+  :transaction-list
+  transaction-list)
+
+(rf/reg-event-fx
+  :prev-transaction-page
+  (fn [{:keys [db] :as world} _]
+    (let [t-list (get-transaction-list-keys db)]
+      (->> t-list
+           (filter (partial < (:last-id db)))
+           reverse
+           (take 10)
+           last
+           (assoc-in world [:db :last-id])
+           transaction-list))))
+
+(rf/reg-event-fx
+  :next-transaction-page
+  (fn [{:keys [db] :as world} _]
+    (let [t-list (get-transaction-list-keys db)
+          check-id (fn [id] (when (> id 1) id))]
+      (or
+        (some->> t-list
+                 (filter (partial > (:last-id db)))
+                 (take 10)
+                 last
+                 check-id
+                 (assoc-in world [:db :last-id])
+                 transaction-list)
+        {:db db}))))
 
 (rf/reg-event-db
   :update-transaction

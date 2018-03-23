@@ -87,11 +87,14 @@
    :headers {"Content-Type" "application/transit+json; charset=utf-8"}
    :body (:body request)})
 
+(def load-transactions (gen-api-handler t/find-transactions))
+
 (def backend-map
   {:index index-handler
    :static-internal int-handler
    :load-transaction (gen-api-handler t/find-transaction)
-   :load-transactions (gen-api-handler t/find-transactions)
+   :load-recent-transactions load-transactions
+   :load-transactions load-transactions
    :save-transaction (gen-api-handler process-transaction)
    :load-matrix (gen-api-handler t/find-debt)
    :loopback loopback-handler})

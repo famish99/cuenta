@@ -106,10 +106,10 @@
     (find-debt conn)))
 
 (defn find-transactions
-  [conn _]
-  (as-> (select-transactions conn) r
-        (for [{:keys [transaction_id] :as item} r]
-          {transaction_id (dissoc item :transaction_id)})
+  [conn params]
+  (as-> (select-transactions conn params) r
+        (for [{:keys [transaction-id] :as item} r]
+          {transaction-id (dissoc item :transaction-id)})
         (into {} r)))
 
 (defn group-by-id
@@ -126,8 +126,6 @@
         (apply merge-with into r)
         (for [[k v] r] {k {:owners v}})
         (into {} r)))
-       ;(group-by first)))
-       ;(apply merge-with conj)))
 
 (defn find-transaction
   [conn params]
