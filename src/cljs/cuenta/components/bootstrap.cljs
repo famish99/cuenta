@@ -3,6 +3,7 @@
             [goog.string :as g-string]
             [reagent.core :as r]))
 
+(def back-arrow (g-string/unescapeEntities "&lArr;"))
 (def button (r/adapt-react-class (.-Button js/ReactBootstrap)))
 (def checkbox (r/adapt-react-class (.-Checkbox js/ReactBootstrap)))
 (def col (r/adapt-react-class (.-Col js/ReactBootstrap)))
@@ -16,6 +17,7 @@
 (def glyphicon (r/adapt-react-class (.-Glyphicon js/ReactBootstrap)))
 (def input-group (r/adapt-react-class (.-InputGroup js/ReactBootstrap)))
 (def input-group-addon (r/adapt-react-class (.-InputGroup.Addon js/ReactBootstrap)))
+(def left-arrow (g-string/unescapeEntities "&larr;"))
 (def menu-item (r/adapt-react-class (.-MenuItem js/ReactBootstrap)))
 (def nav (r/adapt-react-class (.-Nav js/ReactBootstrap)))
 (def nav-item (r/adapt-react-class (.-NavItem js/ReactBootstrap)))
@@ -25,5 +27,6 @@
 (def navbar-brand (r/adapt-react-class (.-Navbar.Brand js/ReactBootstrap)))
 (def nbsp (g-string/unescapeEntities " "))
 (def panel (r/adapt-react-class (.-Panel js/ReactBootstrap)))
+(def right-arrow (g-string/unescapeEntities "&rarr;"))
 (def row (r/adapt-react-class (.-Row js/ReactBootstrap)))
 (def table (r/adapt-react-class (.-Table js/ReactBootstrap)))

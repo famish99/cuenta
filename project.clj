@@ -51,7 +51,7 @@
                     :exclusions [org.clojure/tools.nrepl
                                  ring/ring-core
                                  commons-codec]]
-                   [re-frisk "0.4.5" :exclusions [com.google.guava/guava]]
+                   [re-frisk "0.5.3" :exclusions [com.google.guava/guava]]
                    [org.clojure/tools.nrepl "0.2.10"]]
     :source-paths ["src/clj" "src/cljc" "env/dev"]}
    :prod
@@ -74,7 +74,7 @@
                     :asset-path           "js/compiled/out"
                     :source-map-timestamp true
                     :parallel-build       true
-                    :preloads             [devtools.preload]
+                    :preloads             [devtools.preload re-frisk.preload]
                     :external-config      {:devtools/config {:features-to-install :all}}}}
 
 

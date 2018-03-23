@@ -157,7 +157,6 @@
         :value vendor-name
         :on-change #(rf/dispatch [:update-vendor-name (.-target.value %)])}]]]))
 
-
 (defn order-panel
   []
   (let [people @(rf/subscribe [:people])
@@ -189,7 +188,7 @@
         [:td {:col-span 2}
          [bs/button {:bs-style :primary
                      :on-click #(rf/dispatch [:save-transaction])}
-          [bs/glyphicon {:glyph :glyphicon-floppy-disk}] "Save"]]]]]]))
+          [bs/glyphicon {:glyph :floppy-disk}] " Save"]]]]]]))
 
 (defn add-transaction []
   [bs/grid {:fluid false}
@@ -237,28 +236,38 @@
 
 (defn recent-transactions []
   (let [t-list @(rf/subscribe [:recent-transactions])]
-    [bs/panel {:header "Recent Transactions"}
-     [bs/table
-      [:thead
-       [:tr
-        [:th "Vendor"]
-        [:th "Purchaser"]
-        [:th "Cost"]
-        [:th "Date Added"]]]
-      [:tbody
-       (for [t-id t-list]
-         ^{:key (g-string/format "transaction-row-%d" t-id)}
-         [transaction-entry t-id])
-       [:tr
-        [:td
-         [bs/button {:bs-style :primary
-                     :on-click #(rf/dispatch [:add-transaction])}
-          [bs/glyphicon {:glyph :glyphicon-plus}] "Add Transaction"]]]]]]))
+    [:div.panel.panel-default
+     [:div.panel-heading
+      [:a.make-link {:on-click #(rf/dispatch [:transaction-list])
+                     :tab-index 0}
+       "Transactions"]]
+     [:div.panel-body
+      [bs/table
+       [:thead
+        [:tr
+         [:th "Vendor"]
+         [:th "Purchaser"]
+         [:th "Cost"]
+         [:th "Date Added"]]]
+       [:tbody
+        (for [t-id t-list]
+          ^{:key (g-string/format "transaction-row-%d" t-id)}
+          [transaction-entry t-id])
+        [:tr
+         [:td
+          [bs/button {:bs-style :primary
+                      :on-click #(rf/dispatch [:add-transaction])}
+           [bs/glyphicon {:glyph :plus}] " Add Transaction"]]]]]]]))
 
 (defn view-transaction []
   (let [t-id @(rf/subscribe [:transaction-id])
-        t-details @(rf/subscribe [:t-details t-id])]
+        t-details @(rf/subscribe [:t-details t-id])
+        items (:items t-details)]
     [bs/grid {:fluid false}
+     [:h5
+      [:a.make-link {:on-click #(rf/dispatch [:transaction-list])
+                     :tab-index 0}
+       bs/back-arrow " Transaction List"]]
      [bs/panel {:header (:vendor-name t-details)}
       [bs/table
        [:thead
@@ -269,18 +278,20 @@
          [:th "Taxable"]
          [:th "Owners"]]]
        [:tbody
-        (for [[i-id {:keys [item-name item-price item-quantity item-taxable owners]}]
-              (:items t-details)]
-          ^{:key (g-string/format "item-row-%d" i-id)}
-          [:tr
-           [:td item-name]
-           [:td (g-string/format "$%.2f" item-price)]
-           [:td item-quantity]
-           [:td [bs/glyphicon {:glyph (if item-taxable :ok :remove)}]]
-           [:td (->> owners
-                     (map :given-name)
-                     (interpose ", ")
-                     (apply str))]])
+        (if (empty? items)
+          [:tr [:td.center-text {:col-span 5} "Loading..."]]
+          (for [[i-id {:keys [item-name item-price item-quantity item-taxable owners]}]
+                (:items t-details)]
+            ^{:key (g-string/format "item-row-%d" i-id)}
+            [:tr
+             [:td item-name]
+             [:td (g-string/format "$%.2f" item-price)]
+             [:td item-quantity]
+             [:td [bs/glyphicon {:glyph (if item-taxable :ok :remove)}]]
+             [:td (->> owners
+                       (map :given-name)
+                       (interpose ", ")
+                       (apply str))]]))
         [:tr
          [:td [:b "Tip Amount"]]
          [:td (g-string/format "$%.2f" (:tip-amount t-details))]]
@@ -291,6 +302,43 @@
          [:td [:b "Credit to"]]
          [:td (:given-name t-details)]]]]]]))
 
+(defn view-transactions []
+  (let [t-list @(rf/subscribe [:transaction-list])
+        curr-page @(rf/subscribe [:curr-t-page])
+        page-count @(rf/subscribe [:tot-t-page])]
+    [bs/grid {:fluid false}
+     [:div.panel.panel-default
+      [:div.panel-heading "Transactions"]
+      [:div.panel-body
+       [bs/table
+        [:thead
+         [:tr
+          [:th "Vendor"]
+          [:th "Purchaser"]
+          [:th "Cost"]
+          [:th "Date Added"]]]
+        [:tbody
+         (if (empty? t-list)
+           [:tr [:td.center-text {:col-span 4} "Loading..."]]
+           (for [t-id t-list]
+             ^{:key (g-string/format "transaction-row-%d" t-id)}
+             [transaction-entry t-id]))]]
+       [:ul.pager
+        [:li.previous
+         (when (= curr-page 1) {:style {:visibility :hidden}})
+         [:a.make-link
+          {:tab-index 0
+           :on-click #(rf/dispatch [:prev-transaction-page])}
+          bs/left-arrow " Prev"]]
+        [:li
+         [:span {:style {:border :none}}
+          (g-string/format "%d of %d" curr-page page-count)]]
+        [:li.next
+         (when (= curr-page page-count) {:style {:visibility :hidden}})
+         [:a.make-link
+          {:tab-index 0
+           :on-click #(rf/dispatch [:next-transaction-page])}
+          "Next " bs/right-arrow]]]]]]))
 
 (defn home []
   [bs/grid {:fluid false}
@@ -304,7 +352,8 @@
 (def view-map
   {:home home
    :add-transaction add-transaction
-   :view-transaction view-transaction})
+   :view-transaction view-transaction
+   :view-transactions view-transactions})
 
 (defn router
   []

@@ -1,7 +1,7 @@
 (ns client.run
   (:require [reagent.core :as reagent]
             [re-frame.core :as re-frame]
-            [re-frisk.core :refer [enable-re-frisk!]]
+            [re-frisk.core :refer [enable-re-frisk! enable-frisk! add-data] :refer-macros [def-view]]
             [cuenta.events]
             [cuenta.subs]
             [cuenta.views :as views]
@@ -14,6 +14,6 @@
 
 (defn ^:export init []
   (re-frame/dispatch-sync [:initialize-db])
-  (enable-console-print!)
-  (enable-re-frisk!)
   (mount-root))
+
+(enable-console-print!)

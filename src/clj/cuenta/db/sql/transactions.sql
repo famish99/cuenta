@@ -61,8 +61,13 @@ SELECT creditor, u.given_name AS debtor, amount
   JOIN users AS u
     ON c_join.debtor_id = u.user_id
 
+-- :name select-transaction-count :? :1
+SELECT COUNT(transaction_id) as `row-count`
+  FROM transactions
+   USE INDEX (PRIMARY)
+
 -- :name select-transactions :?
-SELECT transaction_id,
+SELECT transaction_id as `transaction-id`,
        tax_rate as `tax-rate`,
        tip_amount as `tip-amount`,
        total_cost as `total-cost`,
@@ -75,6 +80,9 @@ SELECT transaction_id,
     ON t.vendor_id = v.vendor_id
   JOIN users as u
     ON t.credit_to = u.user_id
+/*~ (when (:last-id params) */
+ WHERE transaction_id < :last-id
+/*~ ) ~*/
  ORDER BY transaction_id
   DESC
  LIMIT

@@ -9,42 +9,45 @@
             [cuenta.routes :as rt]
             [cuenta.util :as util]))
 
+(def request-timeout 5000)
+
+(def load-home-fx
+  [{:method :get
+    :uri (bidi/path-for rt/route-map :load-matrix)
+    :timeout request-timeout
+    :format (ajax/url-request-format)
+    :response-format (ajax/transit-response-format)
+    :on-success [:update-owed]
+    :on-failure [:dump-result]}
+   {:method :get
+    :uri (bidi/path-for rt/route-map :load-transactions)
+    :timeout request-timeout
+    :format (ajax/url-request-format)
+    :response-format (ajax/transit-response-format)
+    :on-success [:update-transactions]
+    :on-failure [:dump-result]}])
+
 (rf/reg-event-fx
   :initialize-db
   (fn [_ _]
     {:db db/default-db
-     :dispatch [:init-home]}))
-
-(rf/reg-event-db
-  :load-home
-  (fn [db _]
-    (-> (apply dissoc db (keys db/transaction-defaults))
-        (dissoc :transaction-id)
-        (assoc :route :home))))
+     :http-xhrio load-home-fx}))
 
 (rf/reg-event-fx
-  :init-home
-  (fn [_ _]
-    {:http-xhrio [{:method :get
-                   :uri (bidi/path-for rt/route-map :load-matrix)
-                   :timeout 5000
-                   :format (ajax/url-request-format)
-                   :response-format (ajax/transit-response-format)
-                   :on-success [:update-owed]
-                   :on-failure [:dump-result]}
-                  {:method :post
-                   :uri (bidi/path-for rt/route-map :load-transactions)
-                   :params {}
-                   :timeout 5000
-                   :format (ajax/transit-request-format)
-                   :response-format (ajax/transit-response-format)
-                   :on-success [:update-transactions]
-                   :on-failure [:dump-result]}]}))
+  :load-home
+  (fn [{:keys [db]} _]
+    {:db (-> (apply dissoc db (keys db/transaction-defaults))
+             (dissoc :view-transaction-id :last-id)
+             (assoc :route :home))
+     :http-xhrio load-home-fx}))
 
 (rf/reg-event-db
   :update-transactions
   (fn [db [_ new-list]]
-    (assoc db :transactions new-list)))
+    (->> db
+         :transactions
+         (merge new-list)
+         (assoc db :transactions))))
 
 (rf/reg-event-db
   :update-route
@@ -66,17 +69,69 @@
           :uri (bidi/path-for rt/route-map
                               :load-transaction
                               :transaction-id t-id)
-          :timeout 5000
+          :timeout request-timeout
           :format (ajax/url-request-format)
           :response-format (ajax/transit-response-format)
           :on-success [:update-transaction t-id]
           :on-failure [:dump-result]}})
       (merge {:db (assoc db :route :view-transaction
-                            :transaction-id t-id)})))
+                            :view-transaction-id t-id)})))
 
 (rf/reg-event-fx
   :view-transaction
   view-transaction)
+
+(defn get-transaction-list-keys
+  [db]
+  (-> db
+      :transactions
+      (dissoc :page-count :current-page)
+      keys
+      (->> (sort >))))
+
+(defn transaction-list
+  [{:keys [db]} & _]
+  (let [t-list (get-transaction-list-keys db)
+        curr-page (-> db :transactions :current-page)
+        per-page (:per-page db)
+        offset (* per-page curr-page)]
+    (-> (when (and (<= curr-page (-> db :transactions :page-count))
+                   (empty? (nthrest t-list offset)))
+          {:http-xhrio
+           {:method :post
+            :uri (bidi/path-for rt/route-map :load-transactions)
+            :timeout request-timeout
+            :format (ajax/transit-request-format)
+            :params {:last-id (last t-list)
+                     :r-limit (- (+ offset per-page) (count t-list))}
+            :response-format (ajax/transit-response-format)
+            :on-success [:update-transactions]
+            :on-failure [:dump-result]}})
+        (merge {:db (assoc db :route :view-transactions)}))))
+
+(rf/reg-event-fx
+  :transaction-list
+  transaction-list)
+
+(rf/reg-event-fx
+  :prev-transaction-page
+  (fn [{:keys [db] :as world} _]
+    (let [curr-page (-> db :transactions :current-page)]
+      (if (> curr-page 1)
+        (-> world
+            (select-keys [:db])
+            (update-in [:db :transactions :current-page] dec))
+        {:db db}))))
+
+(rf/reg-event-fx
+  :next-transaction-page
+  (fn [{:keys [db] :as world} _]
+    (let [curr-page (-> db :transactions :current-page)
+          page-cnt (-> db :transactions :page-count)]
+      (if (< curr-page page-cnt)
+        (->> (update-in world [:db :transactions :current-page] inc)
+             transaction-list)
+        {:db db}))))
 
 (rf/reg-event-db
   :update-transaction
@@ -190,7 +245,7 @@
                :http-xhrio {:method :post
                             :uri (bidi/path-for rt/route-map :load-transactions)
                             :params {}
-                            :timeout 5000
+                            :timeout request-timeout
                             :format (ajax/transit-request-format)
                             :response-format (ajax/transit-response-format)
                             :on-success [:update-transactions]
@@ -210,7 +265,7 @@
                   :params (-> world
                               :db
                               (select-keys (keys db/transaction-defaults)))
-                  :timeout 5000
+                  :timeout request-timeout
                   :format (ajax/transit-request-format)
                   :response-format (ajax/transit-response-format)
                   :on-success [:complete-transaction]

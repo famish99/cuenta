@@ -208,7 +208,7 @@
 (rf/reg-sub
   :transaction-id
   (fn [db _]
-    (:transaction-id db)))
+    (:view-transaction-id db)))
 
 (rf/reg-sub
   :transactions
@@ -216,13 +216,48 @@
     (:transactions db)))
 
 (rf/reg-sub
-  :recent-transactions
+  :t-list-keys
   :<- [:transactions]
   (fn [t-list _]
+    (-> t-list
+        (dissoc :page-count :current-page)
+        keys)))
+
+(rf/reg-sub
+  :recent-transactions
+  :<- [:t-list-keys]
+  (fn [t-list _]
     (->> t-list
-         (into (sorted-map-by >))
-         (take 5)
-         keys)))
+         (sort >)
+         (take 5))))
+
+(rf/reg-sub
+  :per-page
+  (fn [db _]
+    (:per-page db)))
+
+(rf/reg-sub
+  :curr-t-page
+  :<- [:transactions]
+  (fn [{:keys [current-page]} _]
+    current-page))
+
+(rf/reg-sub
+  :tot-t-page
+  :<- [:transactions]
+  (fn [{:keys [page-count]} _]
+    page-count))
+
+(rf/reg-sub
+  :transaction-list
+  :<- [:transactions]
+  :<- [:t-list-keys]
+  :<- [:per-page]
+  (fn [[{:keys [current-page]} t-list per-page] _]
+    (-> t-list
+        (->> (sort >))
+        (nthrest (* per-page (dec current-page)))
+        (->> (take per-page)))))
 
 (rf/reg-sub
   :t-item-vendor

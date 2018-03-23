@@ -13,4 +13,5 @@
 (def default-db
   {:route :home
    :owed-matrix {}
-   :transactions {}})
+   :per-page 10
+   :transactions {:current-page 1}})

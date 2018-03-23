@@ -106,11 +106,17 @@
     (find-debt conn)))
 
 (defn find-transactions
-  [conn _]
-  (as-> (select-transactions conn) r
-        (for [{:keys [transaction_id] :as item} r]
-          {transaction_id (dissoc item :transaction_id)})
-        (into {} r)))
+  [conn params]
+  (let [per-page (or (:r-limit params) 10)
+        page-count (-> (select-transaction-count conn)
+                       :row-count
+                       (/ per-page)
+                       (Math/ceil)
+                       int)]
+    (as-> (select-transactions conn params) r
+          (for [{:keys [transaction-id] :as item} r]
+            {transaction-id (dissoc item :transaction-id)})
+          (into {:page-count page-count} r))))
 
 (defn group-by-id
   [key coll]
@@ -126,8 +132,6 @@
         (apply merge-with into r)
         (for [[k v] r] {k {:owners v}})
         (into {} r)))
-       ;(group-by first)))
-       ;(apply merge-with conj)))
 
 (defn find-transaction
   [conn params]
