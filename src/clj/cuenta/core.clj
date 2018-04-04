@@ -67,7 +67,6 @@
   (fn [request]
     {:status 200
      :headers {"Content-Type" "application/transit+json"
-               ;"Access-Control-Allow-Methods" "POST"
                "Cache-Control" "no-cache, no-store, must-revalidate"
                "Pragma" "no-cache"
                "Expires" 0}
@@ -96,6 +95,9 @@
    :load-transactions load-transactions
    :save-transaction (gen-api-handler process-transaction)
    :load-matrix (gen-api-handler t/find-debt)
+   :load-people (gen-api-handler t/find-users)
+   :load-items (gen-api-handler t/find-items)
+   :load-vendors (gen-api-handler t/find-vendors)
    :loopback loopback-handler})
 
 (defn backend-handler

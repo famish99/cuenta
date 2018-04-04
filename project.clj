@@ -11,11 +11,12 @@
                  [org.slf4j/slf4j-log4j12 "1.7.9"]
                  [mysql/mysql-connector-java "8.0.8-dmr"]
                  [day8.re-frame/http-fx "0.1.4"]
-                 [cljsjs/react-bootstrap "0.31.0-0" :exclusions [cljsjs/react]]
                  [org.clojure/core.async "0.2.391"]
                  [org.immutant/web "2.1.9"]
                  [reagent "0.6.2"]
                  [re-frame "0.9.4"]
+                 [cljsjs/react-bootstrap "0.31.0-0" :exclusions [cljsjs/react]]
+                 [cljsjs/react-select "1.0.0-rc.3" :exclusions [cljsjs/react]]
                  [ring "1.6.0"]
                  [ring/ring-defaults "0.3.1"]]
 

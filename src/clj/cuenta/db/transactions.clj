@@ -9,31 +9,66 @@
 (hug/def-sqlvec-fns "cuenta/db/sql/transactions.sql")
 
 (defn force-find-user-id
-  [conn given-name]
-  (as-> given-name r
-        (if-let [user (select-user conn {:given-name r})]
-          (:id user)
-          (:generated_key (insert-user conn {:new-user [r ""]})))))
+  [conn {:keys [user-id existing]}]
+  (if existing
+    user-id
+    (:generated_key (insert-user conn {:new-user [user-id ""]}))))
 
 (def find-user-id (db/memoize-transaction force-find-user-id))
 
+(defn find-users
+  [conn _]
+  (->>
+    (for [{:keys [user-id given-name]} (select-users conn)]
+      {user-id given-name})
+    (into {})))
+
 (defn force-find-item-id
   [conn vendor-id item]
-  (as-> item r
-        (update r :item-taxable #(if (false? %) 0 1))
-        (assoc r :vendor-id vendor-id)
-        (if-let [q-item (select-item conn r)]
-          (:id q-item)
-          (:generated_key (insert-item conn r)))))
+  (let [item-id (get-in item [:item-name :item-id])
+        v-item (select-item conn (assoc item :item-id item-id))
+        is-same? (= (:item-price v-item) (:item-price item))
+        adj-item (-> item
+                     (update :item-taxable #(if (false? %) 0 1))
+                     (assoc :vendor-id vendor-id))]
+    (log/info item-id is-same?)
+    (cond
+      (and (get-in item [:item-name :existing])
+           is-same?)
+      item-id
+      (and (get-in item [:item-name :existing])
+           (not is-same?))
+      (-> adj-item
+          (assoc :item-name (:item-name v-item))
+          (->> (insert-item conn))
+          :generated_key)
+      :else
+      (-> adj-item
+          (update :item-name :item-id)
+          (->> (insert-item conn))
+          :generated_key))))
 
 (def find-item-id (db/memoize-transaction force-find-item-id))
 
 (defn find-vendor
-  [conn vendor-name]
-  (as-> {:vendor-name vendor-name} r
-        (if-let [vendor (select-vendor conn r)]
-          (:id vendor)
-          (:generated_key (insert-vendor conn r)))))
+  [conn {:keys [vendor-id existing]}]
+  (if existing
+    vendor-id
+    (:generated_key (insert-vendor conn {:vendor-name vendor-id}))))
+
+(defn find-vendors
+  [conn _]
+  (->>
+    (for [{:keys [vendor-id vendor-name]} (select-vendors conn)]
+      {vendor-id vendor-name})
+    (into {})))
+
+(defn find-items
+  [conn params]
+  (->>
+    (for [{:keys [item-id] :as item} (select-items conn params)]
+      {item-id (select-keys item [:item-name :item-price :item-taxable])})
+    (into {})))
 
 (defn add-transaction-item
   [conn {:keys [vendor-id transaction-id]} item]
@@ -74,7 +109,7 @@
         (:generated_key r)
         (for [[creditor debt-map] debt-matrix
               [debtor debt] debt-map]
-          [debt r (find-user-id conn creditor) (find-user-id conn debtor)])
+          [debt r (:user-id creditor) (:user-id debtor)])
         (insert-debts conn {:debts r})))
 
 (defn find-debt
@@ -82,25 +117,27 @@
   (as-> (when-let [version (first args)] {:table-id version}) r
         (select-debts conn r)
         (for [{:keys [creditor debtor amount]} r]
-          {creditor {debtor amount}})
+          {{:user-id creditor} {{:user-id debtor} amount}})
         (apply merge-with conj r)))
 
 (defn process-transaction
-  [conn curr-t]
+  [conn {:keys [items tax-rate credit-to owner-matrix tip-amount people] :as curr-t}]
   (let [owed-matrix (find-debt conn)
-        credit-to (or (:credit-to curr-t) (-> curr-t (get :people) first))
-        owners (:owner-matrix curr-t)
-        tip-amount (:tip-amount curr-t)
-        item-costs (calc/calc-item-cost [(:items curr-t) owners (:tax-rate curr-t)])
+        credit-to (or credit-to (-> people first))
+        item-costs (calc/calc-item-cost [items owner-matrix tax-rate])
         total-cost (calc/total-cost 1 [item-costs tip-amount])]
     (->> (assoc curr-t :total-cost total-cost)
          (add-transaction conn))
-    (->> curr-t
-         :people
+    (->> people
          (remove #{credit-to})
-         (map #(hash-map % (calc/calc-owed [item-costs owners tip-amount total-cost] %)))
+         (map #(hash-map (select-keys % [:user-id])
+                         (calc/calc-owed
+                           [item-costs owner-matrix tip-amount total-cost]
+                           %)))
          (into {})
-         (update owed-matrix credit-to (partial merge-with +))
+         (update owed-matrix
+                 (select-keys credit-to [:user-id])
+                 (partial merge-with +))
          calc/reduce-debts
          (add-debts conn))
     (find-debt conn)))

@@ -3,20 +3,28 @@
             goog.string.format
             [re-frame.core :as rf]
             [cuenta.constants :as const]
-            [cuenta.components.bootstrap :as bs]))
+            [cuenta.util :as util]
+            [cuenta.components.bootstrap :as bs]
+            [cuenta.components.select :as sel]))
+
+(defn owed-field
+  [pos]
+  [:td (g-string/format "$%.02f" @(rf/subscribe [:owed pos]))])
+
+(defn person-field
+  [pos]
+  [:td
+    [sel/create
+     {:value @(rf/subscribe [:person pos])
+      :on-change #(rf/dispatch [:update-person pos (some-> % .-value)])
+      :options @(rf/subscribe [:person-suggest pos])
+      :ignore-case false}]])
 
 (defn person-entry
   [pos]
-  (let [name-value @(rf/subscribe [:person pos])
-        owed @(rf/subscribe [:owed name-value])]
-    [:tr
-     [:td
-      [:input.form-control
-       {:type :text
-        :value name-value
-        :on-blur #(rf/dispatch [:trim-person pos])
-        :on-change #(rf/dispatch [:update-person pos (.-target.value %)])}]]
-     [:td (g-string/format "$%.02f" owed)]]))
+  [:tr
+   [person-field pos]
+   [owed-field pos]])
 
 (defn people-panel
   []
@@ -38,29 +46,25 @@
         [:td [:b (when (> (- total-cost claimed-total) 0.01) {:style {:color :red}})
               (g-string/format "$%.02f" claimed-total)]]]]]]))
 
-
 (defn item-checkbox
-  [person i-pos]
-  (let [item-owned? @(rf/subscribe [:item-owned? person i-pos])]
-    [:td [bs/checkbox {:checked item-owned?
-                       :on-change #(rf/dispatch [:update-owner
-                                                 (.-target.checked %)
-                                                 person
-                                                 i-pos])}]]))
+  [user-value i-pos]
+  [:td
+   [bs/checkbox
+    {:checked @(rf/subscribe [:item-owned? user-value i-pos])
+     :on-change #(rf/dispatch [:update-owner (.-target.checked %) user-value i-pos])}]])
 
 (defn item-entry
   [i-pos people]
-  (let [item-name @(rf/subscribe [:item-name i-pos])
-        item-price @(rf/subscribe [:item-price i-pos])
+  (let [item-price @(rf/subscribe [:item-price i-pos])
         item-quantity @(rf/subscribe [:item-quantity i-pos])
         item-taxable @(rf/subscribe [:item-taxable i-pos])]
     [:tr
      [:td.col-xs-4
-      [:input.form-control
-       {:type :text
-        :value item-name
-        :on-blur #(rf/dispatch [:cast-item :string "" i-pos :item-name])
-        :on-change #(rf/dispatch [:update-item (.-target.value %) i-pos :item-name])}]]
+      [sel/create
+       {:value @(rf/subscribe [:item-name i-pos])
+        :on-change #(rf/dispatch [:update-item-name (some-> % .-value) i-pos])
+        :options @(rf/subscribe [:item-suggest i-pos])
+        :ignore-case false}]]
      [:td.col-xs-2
       [bs/form-group
        {:validation-state (:valid-state item-price)}
@@ -122,8 +126,7 @@
          {:type :text
           :value (:value tip-amount)
           :on-blur #(rf/dispatch [:cast-tip-amount])
-          :on-change #(rf/dispatch [:update-tip-amount (.-target.value %)])}]
-        [bs/form-control-feedback]]]]]))
+          :on-change #(rf/dispatch [:update-tip-amount (.-target.value %)])}]]]]]))
 
 (defn total-cost-field
   []
@@ -133,29 +136,32 @@
      [:td {:style {:text-align :right}} [:b (g-string/format "$%.02f" total-cost)]]]))
 
 (defn credit-to-field
-  [people]
+  []
   [:tr
    [:td
     [bs/form-group
      [bs/control-label "Credit to"]]]
    [:td
-    [bs/form-control
-     {:component-class :select
-      :disabled (< (count people) 1)
-      :on-change #(rf/dispatch [:update-credit-to (.-target.value %)])}
-     (for [person people]
-       ^{:key (g-string/format "credit-select-%s" person)}
-       [:option {:value person} person])]]])
+    [sel/select
+     {:clearable false
+      :disabled @(rf/subscribe [:credit-to-disabled])
+      :value @(rf/subscribe [:credit-to-value])
+      :on-change #(rf/dispatch [:update-credit-to (some-> % .-value)])
+      :options @(rf/subscribe [:credit-to-suggest])}]]])
 
 (defn vendor-name-field
   []
-  (let [vendor-name @(rf/subscribe [:vendor-name-field])]
-    [:tr
-     [:th
-      [:input.form-control
-       {:type :text
-        :value vendor-name
-        :on-change #(rf/dispatch [:update-vendor-name (.-target.value %)])}]]]))
+  [:tr
+   [:th
+    [sel/create
+     {:value @(rf/subscribe [:vendor-name-field])
+      :on-change #(rf/dispatch [:update-vendor-name (some-> % .-value)])
+      :options @(rf/subscribe [:vendor-suggest])
+      :ignore-case false}]]])
+
+(defn person-header
+  [p-id]
+  [:th @(rf/subscribe [:person-field p-id])])
 
 (defn order-panel
   []
@@ -173,9 +179,9 @@
         [:th "Price"]
         [:th "Quantity"]
         [:th "Taxable"]
-        (for [person people]
-          ^{:key (g-string/format "items-person-%s" person)}
-          [:th person])]]
+        (for [p-id people]
+          ^{:key (g-string/format "items-person-%s" p-id)}
+          [person-header p-id])]]
       [:tbody
        (for [i-pos count-items]
          ^{:key (g-string/format "item-row-%d" i-pos)}
@@ -183,7 +189,7 @@
        [tax-rate-field]
        [tip-amount-field]
        [total-cost-field]
-       [credit-to-field people]
+       [credit-to-field]
        [:tr
         [:td {:col-span 2}
          [bs/button {:bs-style :primary
@@ -199,29 +205,34 @@
     [bs/col {:md 12}
      [order-panel]]]])
 
+(defn credit-row
+  [owed-cols creditor debts]
+  [:tr
+   [:td @(rf/subscribe [:get-user-name creditor])]
+   (for [d-item owed-cols
+         :let [debtor (dissoc d-item :user-name)]]
+     ^{:key (g-string/format "%s-owes-%s" creditor debtor)}
+     [:td {:style (if (= creditor debtor)
+                    {:text-align :right :background :gray}
+                    {:text-align :right})}
+      (when-let [debt (get debts debtor)]
+        (g-string/format "$%.02f" debt))])])
+
 (defn people-matrix []
-  (let [owed-matrix @(rf/subscribe [:owed-matrix])
+  (let [owed-matrix @(rf/subscribe [:owed-table])
         owed-cols @(rf/subscribe [:owed-cols])]
     [bs/panel {:header "Debt Matrix"}
      [bs/table
       [:thead
        [:tr
         [:th "Creditor"]
-        (for [debtor-name owed-cols]
-          ^{:key (g-string/format "debtor-header-%s" debtor-name)}
-          [:th {:style {:text-align :right}} debtor-name])]]
+        (for [{:keys [user-name user-id]} owed-cols]
+          ^{:key (g-string/format "debtor-header-%s" user-id)}
+          [:th {:style {:text-align :right}} user-name])]]
       [:tbody
-       (for [[creditor-name debts] owed-matrix]
-         ^{:key (g-string/format "debt-row-%s" creditor-name)}
-         [:tr
-          [:td creditor-name]
-          (for [debtor-name owed-cols]
-            ^{:key (g-string/format "%s-owes-%s" creditor-name debtor-name)}
-            [:td {:style (if (= creditor-name debtor-name)
-                           {:text-align :right :background :gray}
-                           {:text-align :right})}
-             (when-let [debt (get debts debtor-name)]
-               (g-string/format "$%.02f" debt))])])]]]))
+       (for [[creditor debts] owed-matrix]
+         ^{:key (g-string/format "debt-row-%s" (:user-id creditor))}
+         [credit-row owed-cols creditor debts])]]]))
 
 (defn transaction-entry
   [t-id]

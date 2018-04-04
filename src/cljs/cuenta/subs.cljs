@@ -9,6 +9,16 @@
             [cuenta.constants :as const]
             [cuenta.util :as util]))
 
+(defn map-suggest
+  [input-map & _]
+  (for [[key name] input-map]
+    {:value key :label name}))
+
+(defn compare-with-key
+  [key-func]
+  (fn [f-val s-val]
+    (compare (key-func f-val) (key-func s-val))))
+
 (rf/reg-sub
   :route
   (fn [db _]
@@ -30,9 +40,35 @@
     (:tax-rate db)))
 
 (rf/reg-sub
-  :vendor-name-field
+  :vendor-name
   (fn [db _]
-    (get db :vendor-name "")))
+    (:vendor-name db)))
+
+(rf/reg-sub
+  :vendor-name-field
+  :<- [:vendor-name]
+  (fn [{:keys [vendor-id]}]
+    vendor-id))
+
+(rf/reg-sub
+  :vendor-map
+  (fn [db _]
+    (:vendor-map db)))
+
+(rf/reg-sub
+  :vendor-suggest
+  :<- [:vendor-name]
+  :<- [:vendor-map]
+  (fn [[{:keys [vendor-id existing]} v-map] _]
+    (as-> v-map r
+          (if-not (or existing (nil? existing))
+            (merge r {vendor-id vendor-id})
+            r)
+          (into
+            (sorted-map-by
+              (fn [f-v s-v]
+                (compare (get r f-v) (get r s-v)))) r)
+          (map-suggest r))))
 
 (rf/reg-sub
   :tax-rate-field
@@ -78,12 +114,6 @@
     (range (count people))))
 
 (rf/reg-sub
-  :person
-  :<- [:people]
-  (fn [people [_ id]]
-    (get people id "")))
-
-(rf/reg-sub
   :items
   (fn [db _]
     (:items db)))
@@ -104,7 +134,7 @@
   :item-name
   :<- [:items]
   (fn [items [_ id]]
-    (get-in items [id :item-name] "")))
+    (get-in items [id :item-name :item-id])))
 
 (rf/reg-sub
   :item-price
@@ -182,28 +212,49 @@
 
 (rf/reg-sub
   :owed
+  :<- [:people]
   :<- [:item-costs]
   :<- [:owners]
   :<- [:tip-amount]
   :<- [:total-cost]
-  #(calc/calc-owed %1 (second %2)))
+  (fn [[people & args] [_ pos]]
+    (->> (get people pos)
+         (calc/calc-owed args))))
 
 (rf/reg-sub
   :owed-matrix
   (fn [db _]
-    (->> db
-         :owed-matrix
-         (into (sorted-map)))))
+    (:owed-matrix db)))
+
+(rf/reg-sub
+  :owed-table
+  :<- [:owed-matrix]
+  :<- [:user-map]
+  (fn [[owed-matrix user-map] _]
+     (into
+       (sorted-map-by
+         (fn [& vs]
+           (->> (map #(get user-map (:user-id %)) vs)
+                (apply compare))))
+       owed-matrix)))
+
+(rf/reg-sub
+  :get-user-name
+  :<- [:user-map]
+  (fn [user-map [_ {:keys [user-id]}]]
+    (get user-map user-id)))
 
 (rf/reg-sub
   :owed-cols
   :<- [:owed-matrix]
-  (fn [owed-matrix _]
+  :<- [:user-map]
+  (fn [[owed-matrix user-map] _]
     (->> owed-matrix
-         (vals)
+         vals
          (map keys)
-         (flatten)
-         (into (sorted-set)))))
+         flatten
+         (map #(assoc % :user-name (get user-map (:user-id %))))
+         (into (sorted-set-by (compare-with-key :user-name))))))
 
 (rf/reg-sub
   :transaction-id
@@ -250,10 +301,10 @@
 
 (rf/reg-sub
   :transaction-list
-  :<- [:transactions]
+  :<- [:curr-t-page]
   :<- [:t-list-keys]
   :<- [:per-page]
-  (fn [[{:keys [current-page]} t-list per-page] _]
+  (fn [[current-page t-list per-page] _]
     (-> t-list
         (->> (sort >))
         (nthrest (* per-page (dec current-page)))
@@ -301,3 +352,96 @@
   :t-details
   (fn [db [_ t-id]]
     (get-in db [:transactions t-id])))
+
+(rf/reg-sub
+  :user-map
+  (fn [db _]
+    (:user-map db)))
+
+(rf/reg-sub
+  :people-suggest
+  :<- [:user-map]
+  map-suggest)
+
+(rf/reg-sub
+  :people-field
+  :<- [:people]
+  :<- [:user-map]
+  (fn [[people user-map] _]
+    (for [person people]
+      (get user-map person))))
+
+(rf/reg-sub
+  :person-field
+  :<- [:user-map]
+  (fn [user-map [_ {:keys [existing user-id]}]]
+    (if existing
+      (get user-map user-id)
+      user-id)))
+
+(rf/reg-sub
+  :person
+  :<- [:people]
+  (fn [people [_ pos]]
+    (-> people
+        (get pos)
+        :user-id)))
+
+(rf/reg-sub
+  :person-suggest
+  :<- [:people]
+  :<- [:people-suggest]
+  (fn [[people suggest] [_ pos]]
+    (let [{:keys [existing user-id]} (get people pos)]
+      (if (or existing (nil? user-id))
+        suggest
+        (conj suggest {:value user-id :label user-id})))))
+
+(rf/reg-sub
+  :item-map
+  (fn [db _]
+    (:item-map db)))
+
+(rf/reg-sub
+  :items-suggest
+  :<- [:item-map]
+  (fn [item-map _]
+    (for [[key {:keys [item-name]}] item-map]
+      {:value key :label item-name})))
+
+(rf/reg-sub
+  :item-suggest
+  :<- [:items]
+  :<- [:items-suggest]
+  (fn [[items suggest] [_ pos]]
+    (let [{:keys [existing item-id]} (get-in items [pos :item-name])]
+      (if (or existing (nil? item-id))
+        suggest
+        (conj suggest {:value item-id :label item-id})))))
+
+(rf/reg-sub
+  :credit-to
+  (fn [db _]
+    (:credit-to db)))
+
+(rf/reg-sub
+  :credit-to-value
+  :<- [:credit-to]
+  :<- [:people]
+  (fn [[credit-to people] _]
+    (-> (or credit-to (first people))
+        :user-id)))
+
+(rf/reg-sub
+  :credit-to-disabled
+  :<- [:people]
+  (fn [people _]
+    (< (count people) 1)))
+
+(rf/reg-sub
+  :credit-to-suggest
+  :<- [:people]
+  :<- [:user-map]
+  (fn [[people user-map] _]
+    (for [{:keys [user-id existing]} people]
+      {:value user-id :label (if existing (get user-map user-id) user-id)})))

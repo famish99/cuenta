@@ -30,3 +30,8 @@
   [input-value]
   (when input-value
     (c-string/trim input-value)))
+
+(defn dump-n-pass
+  [val]
+  (js/console.log val)
+  val)

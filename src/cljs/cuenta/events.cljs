@@ -1,7 +1,6 @@
 (ns cuenta.events
   (:require [ajax.core :as ajax]
             [bidi.bidi :as bidi]
-            [cljs.pprint :as pp]
             [day8.re-frame.http-fx]
             [re-frame.core :as rf]
             [cuenta.constants :as const]
@@ -13,19 +12,26 @@
 
 (def load-home-fx
   [{:method :get
+    :uri (bidi/path-for rt/route-map :load-people)
+    :timeout request-timeout
+    :format (ajax/url-request-format)
+    :response-format (ajax/transit-response-format)
+    :on-success [:update-user-map]
+    :on-failure [:dump-error]}
+   {:method :get
     :uri (bidi/path-for rt/route-map :load-matrix)
     :timeout request-timeout
     :format (ajax/url-request-format)
     :response-format (ajax/transit-response-format)
     :on-success [:update-owed]
-    :on-failure [:dump-result]}
+    :on-failure [:dump-error]}
    {:method :get
     :uri (bidi/path-for rt/route-map :load-transactions)
     :timeout request-timeout
     :format (ajax/url-request-format)
     :response-format (ajax/transit-response-format)
     :on-success [:update-transactions]
-    :on-failure [:dump-result]}])
+    :on-failure [:dump-error]}])
 
 (rf/reg-event-fx
   :initialize-db
@@ -54,12 +60,36 @@
   (fn [db [_ new-route]]
     (assoc db :route new-route)))
 
-(rf/reg-event-db
+(rf/reg-event-fx
   :add-transaction
-  (fn [db _]
-    (-> db
-        (assoc :route :add-transaction)
-        (merge db/transaction-defaults))))
+  (fn [world _]
+    {:db (-> world
+             :db
+             (assoc :route :add-transaction)
+             (merge db/transaction-defaults))
+     :http-xhrio
+         {:method :get
+          :uri (bidi/path-for rt/route-map :load-vendors)
+          :timeout request-timeout
+          :format (ajax/url-request-format)
+          :response-format (ajax/transit-response-format)
+          :on-success [:update-vendor-map]
+          :on-failure [:dump-error]}}))
+
+(rf/reg-event-db
+  :update-user-map
+  (fn [db [_ results]]
+    (assoc db :user-map results)))
+
+(rf/reg-event-db
+  :update-vendor-map
+  (fn [db [_ results]]
+    (assoc db :vendor-map results)))
+
+(rf/reg-event-db
+  :update-item-map
+  (fn [db [_ results]]
+    (assoc db :item-map results)))
 
 (defn view-transaction
   [{:keys [db]} [_ t-id]]
@@ -73,7 +103,7 @@
           :format (ajax/url-request-format)
           :response-format (ajax/transit-response-format)
           :on-success [:update-transaction t-id]
-          :on-failure [:dump-result]}})
+          :on-failure [:dump-error]}})
       (merge {:db (assoc db :route :view-transaction
                             :view-transaction-id t-id)})))
 
@@ -106,7 +136,7 @@
                      :r-limit (- (+ offset per-page) (count t-list))}
             :response-format (ajax/transit-response-format)
             :on-success [:update-transactions]
-            :on-failure [:dump-result]}})
+            :on-failure [:dump-error]}})
         (merge {:db (assoc db :route :view-transactions)}))))
 
 (rf/reg-event-fx
@@ -145,7 +175,8 @@
 
 (defn adjust-item-owners
   [{:keys [people] :as db}]
-  (update db :owner-matrix select-keys people))
+  (->> people
+       (update db :owner-matrix select-keys)))
 
 (defn adjust-items-owned
   [{:keys [owner-matrix items] :as db}]
@@ -157,14 +188,23 @@
 
 (rf/reg-event-db
   :update-person
-  (fn [db [_ pos new-name]]
-    (assoc-in db [:people pos] new-name)))
+  (fn [db [_ pos user-value]]
+    (->> {:user-id user-value
+          :existing (contains? (:user-map db) user-value)}
+         (assoc-in db [:people pos])
+         :people
+         (filter some?)
+         distinct
+         vec
+         (assoc db :people)
+         adjust-item-owners)))
 
 (rf/reg-event-db
   :trim-person
-  (fn [db [_ pos]]
-    (->> (update (:people db) pos util/trim-string)
-         (filter util/not-blank?)
+  (fn [db _]
+    (->> db
+         :people
+         (filter some?)
          distinct
          vec
          (assoc db :people)
@@ -178,6 +218,21 @@
          (assoc db :items))))
 
 (rf/reg-event-db
+  :update-item-name
+  (fn [db [_ item-value i-pos]]
+    (->> (when-let [item (get (:item-map db) item-value)]
+           (-> item
+               (select-keys [:item-price :item-taxable])
+               (update :item-price util/format-money)))
+         (merge {:item-name {:item-id item-value
+                             :existing (contains? (:item-map db) item-value)}})
+         (assoc (:items db) i-pos)
+         (filter (fn [[_ v]] (some? (get-in v [:item-name :item-id]))))
+         (into {})
+         (assoc db :items)
+         adjust-items-owned)))
+
+(rf/reg-event-db
   :cast-item
   (fn [db [_ cast-type default-value & path]]
     (->> (update-in (:items db)
@@ -188,7 +243,7 @@
                       :money util/format-money
                       :string util/trim-string)
                     default-value)
-         (filter (fn [[k v]] (util/not-blank? (:item-name v))))
+         (filter (fn [[_ v]] (util/not-blank? (:item-name v))))
          (into {})
          (assoc db :items)
          adjust-items-owned)))
@@ -220,8 +275,9 @@
 
 (rf/reg-event-db
   :update-credit-to
-  (fn [db [_ new-value]]
-    (assoc db :credit-to new-value)))
+  (fn [db [_ user-value]]
+    (assoc db :credit-to {:user-id user-value
+                          :existing (contains? (:user-map db) user-value)})))
 
 (defn update-owed
   [world [_ result]]
@@ -231,10 +287,22 @@
   :update-owed
   update-owed)
 
-(rf/reg-event-db
+(rf/reg-event-fx
   :update-vendor-name
-  (fn [db [_ new-value]]
-    (assoc db :vendor-name new-value)))
+  (fn [{:keys [db]} [_ vendor-value]]
+    (let [existing (contains? (:vendor-map db) vendor-value)]
+      (->
+        (when existing
+          {:http-xhrio {:method :post
+                        :uri (bidi/path-for rt/route-map :load-items)
+                        :timeout request-timeout
+                        :params {:vendor-id vendor-value}
+                        :format (ajax/transit-request-format)
+                        :response-format (ajax/transit-response-format)
+                        :on-success [:update-item-map]
+                        :on-failure [:dump-error]}})
+        (merge {:db (->> {:vendor-id vendor-value :existing existing}
+                         (assoc db :vendor-name))})))))
 
 (rf/reg-event-fx
   :complete-transaction
@@ -249,13 +317,18 @@
                             :format (ajax/transit-request-format)
                             :response-format (ajax/transit-response-format)
                             :on-success [:update-transactions]
-                            :on-failure [:dump-result]}))))
+                            :on-failure [:dump-error]}))))
 
 (rf/reg-event-fx
   :dump-result
   (fn [_ [_ result]]
-    (->> result
-         (.log js/console))))
+    (js/console.log result)))
+
+(rf/reg-event-fx
+  :dump-error
+  (fn [_ [_ error]]
+    (js/console.log error)
+    (throw (js/Error. error))))
 
 (rf/reg-event-fx
   :save-transaction
@@ -264,9 +337,11 @@
                   :uri (bidi/path-for rt/route-map :save-transaction)
                   :params (-> world
                               :db
-                              (select-keys (keys db/transaction-defaults)))
+                              (select-keys (-> db/transaction-defaults
+                                               (dissoc :vendor-map :item-map)
+                                               keys)))
                   :timeout request-timeout
                   :format (ajax/transit-request-format)
                   :response-format (ajax/transit-response-format)
                   :on-success [:complete-transaction]
-                  :on-failure [:dump-result]}}))
+                  :on-failure [:dump-error]}}))

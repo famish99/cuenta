@@ -7,11 +7,14 @@
    :tax-rate const/default-tax-rate
    :tip-amount const/default-tip
    :owner-matrix {}
-   :vendor-name ""
+   :vendor-name nil
+   :vendor-map {}
+   :item-map {}
    :credit-to nil})
 
 (def default-db
   {:route :home
    :owed-matrix {}
    :per-page 10
+   :user-map {}
    :transactions {:current-page 1}})
