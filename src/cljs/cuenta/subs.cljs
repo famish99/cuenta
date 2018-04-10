@@ -192,9 +192,11 @@
   :<- [:item-cost-map]
   :<- [:tax-rate]
   (fn [[items tax-rate] _]
-    (->> (for [[_ item] items
-               :when (-> item :item-taxable false? not)]
-          (calc/item-calc item tax-rate))
+    (->> (for [[_ {:keys [item-price item-quantity item-taxable]
+                   :or {item-quantity 1 item-taxable true}}]
+               items
+               :when (-> item-taxable false? not)]
+           (* item-price (int (or item-quantity 1))))
          (apply +)
          (* (float tax-rate) 0.01))))
 
