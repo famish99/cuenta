@@ -4,24 +4,21 @@
             [cuenta.calc :as calc]
             [cuenta.db :as db]))
 
+;; -- import SQL functions ---------------------------------------------------
+
 (hug/def-db-fns "cuenta/db/sql/transactions.sql")
 
 (hug/def-sqlvec-fns "cuenta/db/sql/transactions.sql")
+
+;; -- retrieval section ------------------------------------------------------
+
+;; --- lookup helpers section
 
 (defn force-find-user-id
   [conn {:keys [user-id existing]}]
   (if existing
     user-id
     (:generated_key (insert-user conn {:new-user [user-id ""]}))))
-
-(def find-user-id (db/memoize-transaction force-find-user-id))
-
-(defn find-users
-  [conn _]
-  (->>
-    (for [{:keys [user-id given-name]} (select-users conn)]
-      {user-id given-name})
-    (into {})))
 
 (defn force-find-item-id
   [conn vendor-id item]
@@ -50,6 +47,68 @@
 
 (def find-item-id (db/memoize-transaction force-find-item-id))
 
+(def find-user-id (db/memoize-transaction force-find-user-id))
+
+(defn group-by-id
+  [key coll]
+  (->> (for [item coll]
+         {(get item key) (dissoc item key)})
+       (into {})))
+
+(defn group-owners
+  [conn params]
+  (as-> (select-transaction-owners conn params) r
+        (for [item r]
+          {(:item-id item) [(select-keys item [:given-name])]})
+        (apply merge-with into r)
+        (for [[k v] r] {k {:owners v}})
+        (into (sorted-map) r)))
+
+;; --- lookup functions section
+
+(defn find-debt
+  [conn & args]
+  (as-> (when-let [version (first args)] {:table-id version}) r
+        (select-debts conn r)
+        (for [{:keys [creditor debtor amount]} r]
+          {{:user-id creditor} {{:user-id debtor} amount}})
+        (apply merge-with conj r)))
+
+(defn find-items
+  [conn params]
+  (->>
+    (for [{:keys [item-id] :as item} (select-items conn params)]
+      {item-id (select-keys item [:item-name :item-price :item-taxable])})
+    (into {})))
+
+(defn find-transaction
+  [conn params]
+  (let [query-params (select-keys params [:transaction-id])
+        item-owners (group-owners conn query-params)]
+    (->> (select-transaction-items conn query-params)
+         (group-by-id :item-id)
+         (merge-with conj item-owners))))
+
+(defn find-transactions
+  [conn params]
+  (let [per-page (or (:r-limit params) 10)
+        page-count (-> (select-transaction-count conn)
+                       :row-count
+                       (/ per-page)
+                       (Math/ceil)
+                       int)]
+    (as-> (select-transactions conn params) r
+          (for [{:keys [transaction-id] :as item} r]
+            {transaction-id (dissoc item :transaction-id)})
+          (into {:page-count page-count} r))))
+
+(defn find-users
+  [conn _]
+  (->>
+    (for [{:keys [user-id given-name]} (select-users conn)]
+      {user-id given-name})
+    (into {})))
+
 (defn find-vendor
   [conn {:keys [vendor-id existing]}]
   (if existing
@@ -63,12 +122,18 @@
       {vendor-id vendor-name})
     (into {})))
 
-(defn find-items
-  [conn params]
-  (->>
-    (for [{:keys [item-id] :as item} (select-items conn params)]
-      {item-id (select-keys item [:item-name :item-price :item-taxable])})
-    (into {})))
+;; -- insertion section ------------------------------------------------------
+
+;; --- insertion helpers
+
+(defn add-debts
+  [conn debt-matrix]
+  (as-> (insert-debt-version conn) r
+        (:generated_key r)
+        (for [[creditor debt-map] debt-matrix
+              [debtor debt] debt-map]
+          [debt r (:user-id creditor) (:user-id debtor)])
+        (insert-debts conn {:debts r})))
 
 (defn add-transaction-item
   [conn {:keys [vendor-id transaction-id]} item]
@@ -103,22 +168,7 @@
           (merge n-transaction r)
           (add-transaction-children conn r))))
 
-(defn add-debts
-  [conn debt-matrix]
-  (as-> (insert-debt-version conn) r
-        (:generated_key r)
-        (for [[creditor debt-map] debt-matrix
-              [debtor debt] debt-map]
-          [debt r (:user-id creditor) (:user-id debtor)])
-        (insert-debts conn {:debts r})))
-
-(defn find-debt
-  [conn & args]
-  (as-> (when-let [version (first args)] {:table-id version}) r
-        (select-debts conn r)
-        (for [{:keys [creditor debtor amount]} r]
-          {{:user-id creditor} {{:user-id debtor} amount}})
-        (apply merge-with conj r)))
+;; --- insertion functions section
 
 (defn process-transaction
   [conn {:keys [items tax-rate credit-to owner-matrix tip-amount people] :as curr-t}]
@@ -141,39 +191,3 @@
          calc/reduce-debts
          (add-debts conn))
     (find-debt conn)))
-
-(defn find-transactions
-  [conn params]
-  (let [per-page (or (:r-limit params) 10)
-        page-count (-> (select-transaction-count conn)
-                       :row-count
-                       (/ per-page)
-                       (Math/ceil)
-                       int)]
-    (as-> (select-transactions conn params) r
-          (for [{:keys [transaction-id] :as item} r]
-            {transaction-id (dissoc item :transaction-id)})
-          (into {:page-count page-count} r))))
-
-(defn group-by-id
-  [key coll]
-  (->> (for [item coll]
-        {(get item key) (dissoc item key)})
-       (into {})))
-
-(defn group-owners
-  [conn params]
-  (as-> (select-transaction-owners conn params) r
-        (for [item r]
-         {(:item-id item) [(select-keys item [:given-name])]})
-        (apply merge-with into r)
-        (for [[k v] r] {k {:owners v}})
-        (into {} r)))
-
-(defn find-transaction
-  [conn params]
-  (let [query-params (select-keys params [:transaction-id])
-        item-owners (group-owners conn query-params)]
-    (->> (select-transaction-items conn query-params)
-         (group-by-id :item-id)
-         (merge-with conj item-owners))))

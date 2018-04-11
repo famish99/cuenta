@@ -15,6 +15,6 @@
 (def default-db
   {:route :home
    :owed-matrix {}
-   :per-page 10
+   :cuenta.view-transactions.subs/per-page 10
    :user-map {}
    :transactions {:current-page 1}})

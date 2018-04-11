@@ -117,6 +117,7 @@ SELECT t_i.t_item_id AS `item-id`,
   JOIN items AS i
     ON t_i.item_id = i.item_id
  WHERE t_i.transaction_id = :transaction-id
+ ORDER BY t_i.t_item_id
 
 -- :name select-transaction-owners :?
 SELECT item_id AS `item-id`,
