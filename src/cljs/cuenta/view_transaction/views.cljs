@@ -2,16 +2,18 @@
   (:require [goog.string :as g-string]
             goog.string.format
             [re-frame.core :as rf]
-            [cuenta.components.bootstrap :as bs]))
+            [cuenta.components.bootstrap :as bs]
+            [cuenta.view-transaction.subs :as sub]))
 
 (defn view-transaction []
-  (let [t-id @(rf/subscribe [:transaction-id])
-        t-details @(rf/subscribe [:t-details t-id])
+  (let [t-id @(rf/subscribe [::sub/transaction-id])
+        t-details @(rf/subscribe [::sub/t-details t-id])
         items (:items t-details)]
     [bs/grid {:fluid false}
      [:h5
-      [:a.make-link {:on-click #(rf/dispatch [:transaction-list])
-                     :tab-index 0}
+      [:a.make-link
+       {:on-click #(rf/dispatch [:cuenta.view-transactions.events/transaction-list])
+        :tab-index 0}
        bs/back-arrow " Transaction List"]]
      [bs/panel {:header (:vendor-name t-details)}
       [bs/table
