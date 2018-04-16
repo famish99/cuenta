@@ -95,8 +95,8 @@ SELECT transaction_id AS `transaction-id`,
     ON t.vendor_id = v.vendor_id
   JOIN users AS u
     ON t.credit_to = u.user_id
-/*~ (when (:lASt-id params) */
- WHERE transaction_id < :lASt-id
+/*~ (when (:last-id params) */
+ WHERE transaction_id < :last-id
 /*~ ) ~*/
  ORDER BY transaction_id
   DESC

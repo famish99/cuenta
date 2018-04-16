@@ -1,5 +1,4 @@
-(ns cuenta.calc
-  (:require [clojure.pprint :refer [pprint]]))
+(ns cuenta.calc)
 
 (def max-value
   #?(:clj Double/MAX_VALUE
