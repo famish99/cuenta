@@ -52,12 +52,12 @@
                     :exclusions [org.clojure/tools.nrepl
                                  ring/ring-core
                                  commons-codec]]
-                   [re-frisk "0.5.3" :exclusions [com.google.guava/guava]]
+                   [re-frisk "0.5.3"]
                    [org.clojure/tools.nrepl "0.2.10"]]
     :source-paths ["src/clj" "src/cljc" "env/dev"]}
    :prod
    {:jvm-opts ^:replace ["-Xmx2g" "-server"]
-    :source-paths ["src/clj" "src/cljc" "env/prod"]
+    :source-paths ["src" "env/prod"]
     :env {:production true}
     :aot :all
     :omit-source true
@@ -66,7 +66,7 @@
   :cljsbuild
   {:builds
    [{:id           "dev"
-     :source-paths ["env/dev" "src/cljs" "src/cljc"]
+     :source-paths ["env/dev" "src"]
      :figwheel     {:on-jsload client.run/mount-root
                     :websocket-host :js-client-host}
      :compiler     {:main                 client.run
@@ -80,7 +80,7 @@
 
 
     {:id           "min"
-     :source-paths ["env/prod" "src/cljs" "src/cljc"]
+     :source-paths ["env/prod" "src"]
      :compiler     {:main            client.run
                     :output-to       "resources/public/js/compiled/app.js"
                     :optimizations   :advanced

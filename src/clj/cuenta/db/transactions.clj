@@ -28,7 +28,6 @@
         adj-item (-> item
                      (update :item-taxable #(if (false? %) 0 1))
                      (assoc :vendor-id vendor-id))]
-    (log/info item-id is-same?)
     (cond
       (and (get-in item [:item-name :existing])
            is-same?)

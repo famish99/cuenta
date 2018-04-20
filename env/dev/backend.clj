@@ -1,9 +1,15 @@
 (ns backend
-  (:require [cuenta.core :refer [backend-handler]]
+  (:require [cuenta.core :refer [backend-handler static-handler]]
             [immutant.web :as web]
             [ring.middleware.defaults :refer :all])
   (:gen-class))
 
-(defn main
-  [& args]
-  (web/run-dmc backend-handler {:host "0.0.0.0" :port 3000 :path "/"}))
+(defn main [& args]
+  (def server
+    (-> {:host "0.0.0.0" :port (get (System/getenv) "SERVER_PORT" 3000)}
+        (assoc :path "/js")
+        (->> (web/run static-handler))
+        (assoc :path "/css")
+        (->> (web/run static-handler))
+        (assoc :path "/")
+        (->> (web/run-dmc backend-handler)))))
