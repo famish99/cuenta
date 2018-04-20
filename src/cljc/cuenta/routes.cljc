@@ -2,7 +2,7 @@
 
 (def route-map
   ["/" {#{"" "index"} :index
-        [[#"(css|js|static)" :resource-type]] {[[#".*" :resource-name]] :static-internal}
+        [[#"(css|js|static)" :resource-type]] {[[#".*" :resource-name]] :static-resource}
         "api/" {"load/" {"matrix" :load-matrix
                          "items" :load-items
                          "people" :load-people

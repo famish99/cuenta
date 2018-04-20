@@ -90,7 +90,7 @@
 
 (def backend-map
   {:index index-handler
-   :static-internal int-handler
+   :static-resource int-handler
    :load-transaction (gen-api-handler t/find-transaction)
    :load-transactions load-transactions
    :save-transaction (gen-api-handler process-transaction)
@@ -99,6 +99,14 @@
    :load-items (gen-api-handler t/find-items)
    :load-vendors (gen-api-handler t/find-vendors)
    :loopback loopback-handler})
+
+(defn static-handler
+  [request]
+  (let [{:keys [handler route-params]}
+        (bidi/match-route routes/route-map (:uri request))]
+    (log/info (:uri request))
+    (assert handler :static-resource)
+    (int-handler (assoc request :route-params route-params))))
 
 (defn backend-handler
   [request]
