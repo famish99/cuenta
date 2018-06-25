@@ -172,16 +172,21 @@
 (defn process-transaction
   [conn {:keys [items tax-rate credit-to owner-matrix tip-amount people] :as curr-t}]
   (let [owed-matrix (find-debt conn)
-        credit-to (or credit-to (-> people first))
-        item-costs (calc/calc-item-cost [items owner-matrix tax-rate])
+        own-mat-with-ids (->> (for [[person items] owner-matrix]
+                                {{:user-id (find-user-id conn person)} items})
+                              (into {}))
+        credit-to {:user-id (find-user-id conn (or credit-to (-> people first)))}
+        item-costs (calc/calc-item-cost [items own-mat-with-ids tax-rate])
         total-cost (calc/total-cost 1 [item-costs tip-amount])]
     (->> (assoc curr-t :total-cost total-cost)
          (add-transaction conn))
-    (->> people
+    (->> (for [person people]
+           {:user-id (find-user-id conn person)})
+         (into [])
          (remove #{credit-to})
          (map #(hash-map (select-keys % [:user-id])
                          (calc/calc-owed
-                           [item-costs owner-matrix tip-amount total-cost]
+                           [item-costs own-mat-with-ids tip-amount total-cost]
                            %)))
          (into {})
          (update owed-matrix

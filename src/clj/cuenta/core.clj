@@ -13,7 +13,7 @@
 
 (defn transit-decode
   [input-stream & {:keys [msg-type] :or {msg-type :json}}]
-  (when (> (.available input-stream) 0)
+  (when (> (.available input-stream) -1)
     (-> input-stream
         (transit/reader msg-type)
         transit/read)))
