@@ -22,6 +22,11 @@
       (when-let [debt (get debts debtor)]
         (g-string/format "$%.02f" debt))])])
 
+(defn debt-total-col
+  [debtor]
+  [:td {:style {:text-align :right}}
+   [:b (g-string/format "$%.02f" @(rf/subscribe [:total-owed-col debtor]))]])
+
 (defn people-matrix []
   (let [owed-matrix @(rf/subscribe [:owed-table])
         owed-cols @(rf/subscribe [:owed-cols])]
@@ -36,7 +41,12 @@
       [:tbody
        (for [[creditor debts] owed-matrix]
          ^{:key (g-string/format "debt-row-%s" (:user-id creditor))}
-         [credit-row owed-cols creditor debts])]]]))
+         [credit-row owed-cols creditor debts])
+       [:tr
+        [:td [:b "Total"]]
+        (for [debtor owed-cols]
+          ^{:key (g-string/format "total-col-%s" (:user-id debtor))}
+          [debt-total-col debtor])]]]]))
 
 ;; -- home component ---------------------------------------------------------
 

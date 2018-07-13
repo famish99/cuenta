@@ -46,6 +46,15 @@
        owed-matrix)))
 
 (rf/reg-sub
+  :total-owed-col
+  :<- [:owed-matrix]
+  (fn [owed-matrix [_ user-map]]
+    (-> owed-matrix
+        vals
+        (->> (map #(% (select-keys user-map [:user-id])))
+             (reduce +)))))
+
+(rf/reg-sub
   :get-user-name
   :<- [:user-map]
   (fn [user-map [_ {:keys [user-id]}]]
