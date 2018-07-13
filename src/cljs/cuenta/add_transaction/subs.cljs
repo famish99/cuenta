@@ -7,10 +7,15 @@
 
 ;; -- utility functions -------------------------------------------------------
 
+(defn compare-labels
+  [val_1 val_2]
+  (compare (:label val_1) (:label val_2)))
+
 (defn map-suggest
   [input-map & _]
-  (for [[key name] input-map]
-    {:value key :label name}))
+  (->> (for [[key name] input-map]
+         {:value key :label name})
+       (into (sorted-set-by compare-labels))))
 
 ;; -- first level subs -------------------------------------------------------
 
@@ -88,8 +93,9 @@
   ::items-suggest
   :<- [::item-map]
   (fn [item-map _]
-    (for [[key {:keys [item-name]}] item-map]
-      {:value key :label item-name})))
+    (->> (for [[key {:keys [item-name]}] item-map]
+           {:value key :label item-name})
+         (into (sorted-set-by compare-labels)))))
 
 (rf/reg-sub
   ::people-suggest
