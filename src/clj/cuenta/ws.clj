@@ -3,7 +3,8 @@
             [clojure.string :as str]
             [immutant.web.async :as ws]
             [cuenta.db :as db]
-            [cuenta.codecs :as cd])
+            [cuenta.codecs :as cd]
+            [clojure.tools.logging :as log])
   (:import (io.undertow.util HttpString)
            (java.io ByteArrayInputStream)))
 
@@ -59,7 +60,9 @@
                      :on-open (fn [ch]
                                 (->> protocol
                                      keyword
-                                     (swap! conn-pool assoc ch)))
+                                     (swap! conn-pool assoc ch))
+                                (log/info "Connected users:"
+                                          (count @conn-pool)))
                      :on-message (-> protocol
                                      keyword
                                      ws-proto-map
