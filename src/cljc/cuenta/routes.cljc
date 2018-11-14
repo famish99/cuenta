@@ -10,4 +10,5 @@
                          ["transaction/" [#"\d+" :transaction-id]] :load-transaction
                          "transactions" :load-transactions}
                 "save/" {"transaction" :save-transaction}}
-        "loopback" :loopback}])
+        "loopback" :loopback
+        "ws" :web-socket}])

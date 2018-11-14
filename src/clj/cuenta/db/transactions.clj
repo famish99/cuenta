@@ -1,8 +1,8 @@
 (ns cuenta.db.transactions
   (:require [hugsql.core :as hug]
-            [clojure.tools.logging :as log]
             [cuenta.calc :as calc]
-            [cuenta.db :as db]))
+            [cuenta.db :as db]
+            [cuenta.ws :as ws]))
 
 ;; -- import SQL functions ---------------------------------------------------
 
@@ -194,4 +194,6 @@
                  (partial merge-with +))
          calc/reduce-debts
          (add-debts conn))
-    (find-debt conn)))
+    (ws/broadcast-events [:update-user-map (find-users conn nil)]
+                         [:update-owed (find-debt conn)]
+                         [:update-transactions (find-transactions conn nil)])))

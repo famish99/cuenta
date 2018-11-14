@@ -1,4 +1,4 @@
-(ns backend
+(ns bin.backend
   (:require [cuenta.core :refer [backend-handler static-handler]]
             [immutant.web :as web]
             [ring.middleware.defaults :refer :all])

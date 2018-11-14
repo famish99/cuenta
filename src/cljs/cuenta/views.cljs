@@ -75,6 +75,6 @@
       [bs/navbar-header
        [bs/navbar-brand
         [bs/button {:bs-style :link
-                    :on-click #(rf/dispatch [:load-home])}
+                    :on-click #(rf/dispatch [:reload-home])}
          "Split da Bill"]]]]
      [(get view-map route home)]]))

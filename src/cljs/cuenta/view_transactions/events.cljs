@@ -15,14 +15,9 @@
 (defn view-transaction
   [{:keys [db]} [_ t-id]]
   (-> (when-not (get-in db [:transactions t-id :items])
-        {:http-xhrio
-         {:method          :get
-          :uri             (bidi/path-for rt/route-map
-                                          :load-transaction
-                                          :transaction-id t-id)
-          :timeout         const/request-timeout
-          :format          (ajax/url-request-format)
-          :response-format (ajax/transit-response-format)
+        {:api
+         {:action :load-transaction
+          :route-params {:transaction-id t-id}
           :on-success      [::update-transaction t-id]
           :on-failure      [:dump-error]}})
       (merge {:db (assoc db :route :view-transaction
@@ -50,14 +45,10 @@
         offset (* per-page curr-page)]
     (-> (when (and (<= curr-page (-> db :transactions :page-count))
                    (empty? (nthrest t-list offset)))
-          {:http-xhrio
-           {:method :post
-            :uri (bidi/path-for rt/route-map :load-transactions)
-            :timeout const/request-timeout
-            :format (ajax/transit-request-format)
+          {:api
+           {:action :load-transactions
             :params {:last-id (last t-list)
                      :r-limit (- (+ offset per-page) (count t-list))}
-            :response-format (ajax/transit-response-format)
             :on-success [:update-transactions]
             :on-failure [:dump-error]}})
         (merge {:db (assoc db :route :view-transactions)}))))

@@ -31,21 +31,17 @@
              :db
              (assoc :route :add-transaction)
              (merge db/transaction-defaults))
-     :http-xhrio
-         {:method          :get
-          :uri             (bidi/path-for rt/route-map :load-vendors)
-          :timeout         const/request-timeout
-          :format          (ajax/url-request-format)
-          :response-format (ajax/transit-response-format)
-          :on-success      [::update-vendor-map]
-          :on-failure      [:dump-error]}}))
+     :api
+         {:action :load-vendors
+          :on-success [::update-vendor-map]
+          :on-failure [:dump-error]}}))
 
 (rf/reg-event-db
   ::cast-item
   (fn [db [_ cast-type default-value & path]]
     (->> (update-in (:items db)
                     path
-                    (condp = cast-type
+                    (case cast-type
                       :int util/format-int
                       :float util/format-float
                       :money util/format-money
@@ -67,26 +63,16 @@
     (update db :tip-amount util/format-money const/default-tip)))
 
 (rf/reg-event-fx
-  ::complete-transaction
-  (fn [_ [_ result]]
-    {:dispatch-n [[:update-owed result]
-                  [:load-home]]}))
-
-(rf/reg-event-fx
   ::save-transaction
   (fn [world _]
-    {:http-xhrio {:method :post
-                  :uri (bidi/path-for rt/route-map :save-transaction)
-                  :params (-> world
-                              :db
-                              (select-keys (-> db/transaction-defaults
-                                               (dissoc :vendor-map :item-map)
-                                               keys)))
-                  :timeout const/request-timeout
-                  :format (ajax/transit-request-format)
-                  :response-format (ajax/transit-response-format)
-                  :on-success [:load-home]
-                  :on-failure [:dump-error]}}))
+    {:api {:action :save-transaction
+           :params (-> world
+                       :db
+                       (select-keys (-> db/transaction-defaults
+                                        (dissoc :vendor-map :item-map)
+                                        keys)))
+           :on-success [:load-home]
+           :on-failure [:dump-error]}}))
 
 (rf/reg-event-db
   ::update-credit-to
@@ -160,13 +146,9 @@
     (let [existing (contains? (:vendor-map db) vendor-value)]
       (->
         (when existing
-          {:http-xhrio {:method :post
-                        :uri (bidi/path-for rt/route-map :load-items)
-                        :timeout const/request-timeout
-                        :params {:vendor-id vendor-value}
-                        :format (ajax/transit-request-format)
-                        :response-format (ajax/transit-response-format)
-                        :on-success [::update-item-map]
-                        :on-failure [:dump-error]}})
+          {:api {:action :load-items
+                 :params {:vendor-id vendor-value}
+                 :on-success [::update-item-map]
+                 :on-failure [:dump-error]}})
         (merge {:db (->> {:vendor-id vendor-value :existing existing}
                          (assoc db :vendor-name))})))))
