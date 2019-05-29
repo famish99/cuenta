@@ -30,7 +30,7 @@
                 :as req}
                (some-> message decode-f)]
       (try
-        (jdbc/with-db-connection
+        (jdbc/with-db-transaction
           [tx db/db-spec]
           (db/clear-transaction-cache!)
           (->> ((-> req :action handler-map) tx (merge params route-params))

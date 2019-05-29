@@ -9,7 +9,17 @@
 
 (defn compare-labels
   [val_1 val_2]
-  (compare (:label val_1) (:label val_2)))
+  (let [c-label (compare (:label val_1) (:label val_2))]
+    (if (= c-label 0)
+      (compare (:value val_1) (:value val_2))
+      c-label)))
+
+(defn find-diff
+  [input-map black-list]
+  (->> (for [[k v] input-map
+             :when (not (contains? black-list k))]
+         {k v})
+       (into {})))
 
 (defn map-suggest
   [input-map & _]
@@ -92,15 +102,29 @@
 (rf/reg-sub
   ::items-suggest
   :<- [::item-map]
-  (fn [item-map _]
-    (->> (for [[key {:keys [item-name]}] item-map]
-           {:value key :label item-name})
-         (into (sorted-set-by compare-labels)))))
+  :<- [::items]
+  (fn [[item-map items] _]
+    (as-> items r
+      (for [[_ {{:keys [item-id existing]} :item-name}] r
+            :when existing]
+        item-id)
+      (into #{} r)
+      (find-diff item-map r)
+      (for [[key {:keys [item-name]}] r]
+        {:value key :label item-name})
+      (into (sorted-set-by compare-labels) r))))
 
 (rf/reg-sub
   ::people-suggest
   :<- [:user-map]
-  map-suggest)
+  :<- [::people]
+  (fn [[user-map people] & _]
+    (->> (for [{:keys [user-id existing]} people
+               :when existing]
+           user-id)
+         (into #{})
+         (find-diff user-map)
+         map-suggest)))
 
 ;; --- input field related subs
 
@@ -240,22 +264,27 @@
 
 (rf/reg-sub
   ::item-suggest
+  :<- [::item-map]
   :<- [::items]
   :<- [::items-suggest]
-  (fn [[items suggest] [_ pos]]
+  (fn [[item-map items suggest] [_ pos]]
     (let [{:keys [existing item-id]} (get-in items [pos :item-name])]
       (if (or existing (nil? item-id))
-        suggest
+        (-> item-map
+            (get-in [item-id :item-name])
+            (->> (array-map :value item-id :label)
+                 (conj suggest)))
         (conj suggest {:value item-id :label item-id})))))
 
 (rf/reg-sub
   ::person-suggest
   :<- [::people]
   :<- [::people-suggest]
-  (fn [[people suggest] [_ pos]]
+  :<- [:user-map]
+  (fn [[people suggest user-map] [_ pos]]
     (let [{:keys [existing user-id]} (get people pos)]
       (if (or existing (nil? user-id))
-        suggest
+        (conj suggest {:value user-id :label (get user-map user-id)})
         (conj suggest {:value user-id :label user-id})))))
 
 (rf/reg-sub
