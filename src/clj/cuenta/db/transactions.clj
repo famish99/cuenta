@@ -2,7 +2,8 @@
   (:require [hugsql.core :as hug]
             [cuenta.calc :as calc]
             [cuenta.db :as db]
-            [cuenta.ws :as ws]))
+            [cuenta.ws :as ws]
+            [clojure.tools.logging :as log]))
 
 ;; -- import SQL functions ---------------------------------------------------
 
@@ -64,6 +65,12 @@
         (into (sorted-map) r)))
 
 ;; --- lookup functions section
+
+(defn find-cash-out
+  [conn]
+  (if-let [vendor-id (select-vendor conn {:vendor-name "Cashout"})]
+    (:id vendor-id)
+    (:generated_key (insert-vendor conn {:vendor-name "Cashout"}))))
 
 (defn find-debt
   [conn & args]
@@ -168,6 +175,28 @@
           (add-transaction-children conn r))))
 
 ;; --- insertion functions section
+
+(defn erase-debt
+  [conn {:keys [selected-cells]}]
+  (let [debts (select-debts conn)
+        owed-matrix (find-debt conn)]
+    {:credit-to (-> selected-cells
+                    first
+                    first
+                    (assoc :existing true)
+                    (->> (find-user-id conn)))
+     :vendor-id (find-cash-out conn)}))
+    ;(->> (for [{:keys [creditor debtor amount]} debts
+    ;           :when (contains? selected-cells [{:user-id creditor} {:user-id debtor}])]
+    ;        [creditor amount])
+    ;     (log/info))))
+    ;(->> (for [[creditor credits] owed-matrix
+    ;           [debtor debt] credits]
+    ;       (if (= debtor user-id)
+    ;         :erase
+    ;         {creditor {debtor debt}}))
+    ;     (remove #{:erase})
+    ;     (apply merge-with conj))))
 
 (defn process-transaction
   [conn {:keys [items tax-rate credit-to owner-matrix tip-amount people] :as curr-t}]

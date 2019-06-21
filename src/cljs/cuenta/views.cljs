@@ -3,11 +3,17 @@
             goog.string.format
             [re-frame.core :as rf]
             [cuenta.add-transaction.views :as a-t]
+            [cuenta.erase-debt.views :as e-d]
             [cuenta.components.bootstrap :as bs]
             [cuenta.view-transaction.views :as v-t]
             [cuenta.view-transactions.views :as v-ts]))
 
 ;; -- people-matrix components -----------------------------------------------
+
+(defn debt-total-col
+  [debtor]
+  [:td {:style {:text-align :right}}
+   [:b (g-string/format "$%.02f" @(rf/subscribe [:total-owed-col debtor]))]])
 
 (defn credit-row
   [owed-cols creditor debts]
@@ -21,11 +27,6 @@
                     {:text-align :right})}
       (when-let [debt (get debts debtor)]
         (g-string/format "$%.02f" debt))])])
-
-(defn debt-total-col
-  [debtor]
-  [:td {:style {:text-align :right}}
-   [:b (g-string/format "$%.02f" @(rf/subscribe [:total-owed-col debtor]))]])
 
 (defn people-matrix []
   (let [owed-matrix @(rf/subscribe [:owed-table])
@@ -46,7 +47,13 @@
         [:td [:b "Total"]]
         (for [debtor owed-cols]
           ^{:key (g-string/format "total-col-%s" (:user-id debtor))}
-          [debt-total-col debtor])]]]]))
+          [debt-total-col debtor])]
+       [:tr
+        [:td
+         [bs/button
+          {:bs-style :primary
+           :on-click #(rf/dispatch [:cuenta.erase-debt.events/erase-debt])}
+          [:span.glyphicon.glyphicon-erase] bs/nbsp "Erase Debt"]]]]]]))
 
 ;; -- home component ---------------------------------------------------------
 
@@ -64,6 +71,7 @@
 (def view-map
   {:home home
    :add-transaction a-t/add-transaction
+   :erase-debt  e-d/erase-debt
    :view-transaction v-t/view-transaction
    :view-transactions v-ts/view-transactions})
 

@@ -33,7 +33,7 @@
 
 (defn send-request
   [{:keys [action params route-params on-success on-error] :as fx-params}]
-  (if @socket
+  (if false
     (try
       (->> fx-params cd/transit-encode (.send @socket))
       (catch js/Error err

@@ -50,6 +50,7 @@
 (def handler-map
   {:index             [index-handler :raw]
    :static-resource   [int-handler :raw]
+   :erase-debt        [t/erase-debt :api]
    :load-transaction  [t/find-transaction :api]
    :load-transactions [t/find-transactions :api]
    :save-transaction  [process-transaction :api]
