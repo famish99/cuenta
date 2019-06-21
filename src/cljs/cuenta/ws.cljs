@@ -29,6 +29,13 @@
       (set! (.-onmessage conn) msg-rx-handler)
       (set! (.-onclose conn) (fn [_] (reset! socket nil)))))) ; should also dispatch event
 
+(def ws-active
+  (rf/->interceptor
+    :id :ws-active
+    :before
+    (fn [context]
+      (assoc-in context [:coeffects :ws-active] (boolean @socket)))))
+
 (rf/reg-fx :open-ws open-ws)
 
 (defn send-request
@@ -47,7 +54,7 @@
              :format (ajax/url-request-format)})
           (merge {:uri (b/unmatch-pair cr/route-map
                                        {:handler action
-                                        :route-params route-params})
+                                        :params route-params})
                   :timeout const/request-timeout
                   :response-format (ajax/transit-response-format)
                   :handler (fn [[success? response]]

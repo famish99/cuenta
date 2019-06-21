@@ -50,18 +50,18 @@ INSERT INTO transactions (tax_rate, tip_amount, total_cost, credit_to, vendor_id
 VALUES (:tax-rate, :tip-amount, :total-cost, :credit-to, :vendor-id)
 
 -- :name insert-transaction-item :i!
-INSERT INTO transaction_items (item_quantity, item_id, transaction_id)
+INSERT INTO transaction_items (item_quantity, transaction_id, item_id)
 VALUES :t:new-item
 
 -- :name insert-transaction-owners :!
-INSERT INTO transaction_owners (user_id, item_id, transaction_id)
+INSERT INTO transaction_owners (user_id, transaction_id, item_id)
 VALUES :t*:owners
 
 -- :name insert-debt-version :i!
 INSERT INTO debt_table () VALUES ()
 
 -- :name insert-debts :!
-INSERT INTO debts (amount, table_id, creditor_id, debtor_id)
+INSERT INTO debts (table_id, creditor_id, debtor_id, amount)
 VALUES :t*:debts
 
 -- :name select-debts :?

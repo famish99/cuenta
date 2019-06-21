@@ -2,7 +2,8 @@
   (:require [hugsql.core :as hug]
             [cuenta.calc :as calc]
             [cuenta.db :as db]
-            [cuenta.ws :as ws]))
+            [cuenta.ws :as ws]
+            [clojure.tools.logging :as log]))
 
 ;; -- import SQL functions ---------------------------------------------------
 
@@ -64,6 +65,12 @@
         (into (sorted-map) r)))
 
 ;; --- lookup functions section
+
+(defn find-cash-out
+  [conn]
+  (some-> conn
+          (select-vendor {:vendor-name "Cashout"})
+          :id))
 
 (defn find-debt
   [conn & args]
@@ -131,14 +138,14 @@
         (:generated_key r)
         (for [[creditor debt-map] debt-matrix
               [debtor debt] debt-map]
-          [debt r (:user-id creditor) (:user-id debtor)])
+          [r (:user-id creditor) (:user-id debtor) debt])
         (insert-debts conn {:debts r})))
 
 (defn add-transaction-item
   [conn {:keys [vendor-id transaction-id]} item]
   (as-> (find-item-id conn vendor-id item) r
         (insert-transaction-item
-          conn {:new-item [(or (:item-quantity item) 1) r transaction-id]})
+          conn {:new-item [(or (:item-quantity item) 1) transaction-id r]})
         (:generated_key r)))
 
 (defn add-transaction-children
@@ -151,7 +158,7 @@
     (as-> owner-matrix r
           (for [[owner o-item-map] r
                 [item-key _] (->> o-item-map (filter second))]
-            [(find-user-id conn owner) (get item-map item-key) transaction-id])
+            [(find-user-id conn owner) transaction-id (get item-map item-key)])
           (insert-transaction-owners conn {:owners r}))))
 
 (defn add-transaction
@@ -167,7 +174,59 @@
           (merge n-transaction r)
           (add-transaction-children conn r))))
 
+(defn add-cash-out-transaction
+  [conn debts user-id creditors]
+  (let [vendor-id (find-cash-out conn)
+        user-map (find-users conn :unused-arg)
+        debts (for [[c-id d-id] creditors
+                    :let [creditor (:user-id c-id)
+                          debtor (:user-id d-id)]]
+                [creditor debtor (get debts [creditor debtor])])
+        t-id (->> {:credit-to (-> user-id
+                                  (assoc :existing true)
+                                  (->> (find-user-id conn)))
+                   :tax-rate 0
+                   :tip-amount 0
+                   :total-cost (reduce #(+ %1 (last %2)) 0 debts)
+                   :vendor-id (find-cash-out conn)}
+                  (insert-transaction conn)
+                  :generated_key)]
+    (->> (for [[creditor debtor amount] debts]
+           (->> {:item-name (format "Cash: %s → %s"
+                                    (get user-map debtor)
+                                    (get user-map creditor))
+                 :item-price amount
+                 :item-taxable 0
+                 :vendor-id vendor-id}
+                (insert-item conn)
+                :generated_key
+                (vector 1 t-id)
+                (array-map :new-item)
+                (insert-transaction-item conn)
+                :generated_key
+                (vector creditor t-id)))
+         (array-map :owners)
+         (insert-transaction-owners conn))))
+
 ;; --- insertion functions section
+
+(defn erase-debt
+  [conn {:keys [selected-cells]}]
+  (let [debts (->> (for [{:keys [creditor debtor amount]} (select-debts conn)]
+                     {[creditor debtor] amount})
+                   (into {}))]
+    (doseq [[debtor creditors] (group-by second selected-cells)]
+      (add-cash-out-transaction conn debts debtor creditors))
+    (as-> (insert-debt-version conn) r
+          (:generated_key r)
+          (for [[[creditor debtor] amount] debts
+                :when (not (contains? selected-cells [{:user-id creditor}
+                                                      {:user-id debtor}]))]
+            [r creditor debtor amount])
+          (insert-debts conn {:debts r}))
+    (ws/broadcast-events [:update-user-map (find-users conn :unused-arg)]
+                         [:update-owed (find-debt conn)]
+                         [:update-transactions (find-transactions conn :unused-arg)])))
 
 (defn process-transaction
   [conn {:keys [items tax-rate credit-to owner-matrix tip-amount people] :as curr-t}]
@@ -194,6 +253,6 @@
                  (partial merge-with +))
          calc/reduce-debts
          (add-debts conn))
-    (ws/broadcast-events [:update-user-map (find-users conn nil)]
+    (ws/broadcast-events [:update-user-map (find-users conn :unused-arg)]
                          [:update-owed (find-debt conn)]
-                         [:update-transactions (find-transactions conn nil)])))
+                         [:update-transactions (find-transactions conn :unused-arg)])))

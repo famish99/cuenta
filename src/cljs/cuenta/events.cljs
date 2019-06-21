@@ -1,6 +1,6 @@
 (ns cuenta.events
   (:require [re-frame.core :as rf]
-            [cuenta.ws]
+            [cuenta.ws :as ws]
             [cuenta.db :as db]))
 
 
@@ -24,10 +24,14 @@
 
 (rf/reg-event-fx
   :load-home
-  (fn [{:keys [db]} _]
-    {:db (-> (apply dissoc db (keys db/transaction-defaults))
-             (dissoc :view-transaction-id :last-id)
-             (assoc :route :home))}))
+  [ws/ws-active]
+  (fn [{:keys [db ws-active]} _]
+    (cond-> {:db (-> (apply dissoc db (keys db/transaction-defaults))
+                     (dissoc :view-transaction-id
+                             :last-id
+                             :cuenta.erase-debt.events/selected-cells)
+                     (assoc :route :home))}
+            (not ws-active) (assoc :api load-home-fx))))
 
 (rf/reg-event-fx
   :reload-home

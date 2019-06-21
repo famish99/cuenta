@@ -1,0 +1,1 @@
+INSERT IGNORE INTO vendors (vendor_name) VALUES ("Cashout")

@@ -9,6 +9,7 @@
                          "vendors" :load-vendors
                          ["transaction/" [#"\d+" :transaction-id]] :load-transaction
                          "transactions" :load-transactions}
-                "save/" {"transaction" :save-transaction}}
+                "save/" {"transaction" :save-transaction
+                         "erase/debt" :erase-debt}}
         "loopback" :loopback
         "ws" :web-socket}])

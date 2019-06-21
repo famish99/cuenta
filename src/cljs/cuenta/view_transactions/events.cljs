@@ -1,9 +1,5 @@
 (ns cuenta.view-transactions.events
-  (:require [ajax.core :as ajax]
-            [bidi.bidi :as bidi]
-            [re-frame.core :as rf]
-            [cuenta.constants :as const]
-            [cuenta.routes :as rt]))
+  (:require [re-frame.core :as rf]))
 
 ;; -- transaction detail section ---------------------------------------------
 
@@ -16,10 +12,10 @@
   [{:keys [db]} [_ t-id]]
   (-> (when-not (get-in db [:transactions t-id :items])
         {:api
-         {:action :load-transaction
-          :route-params {:transaction-id t-id}
-          :on-success      [::update-transaction t-id]
-          :on-failure      [:dump-error]}})
+         {:action       :load-transaction
+          :route-params {:transaction-id (int t-id)}
+          :on-success   [::update-transaction t-id]
+          :on-failure   [:dump-error]}})
       (merge {:db (assoc db :route :view-transaction
                             :view-transaction-id t-id)})))
 

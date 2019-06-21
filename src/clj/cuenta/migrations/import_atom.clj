@@ -12,18 +12,16 @@
     (->> (transit/reader fp :json)
          transit/read)))
 
-(def app-state (load-state "data_store.json"))
-
-(def initial-debts (load-state "initial_debts.json"))
-
 (defn migrate-up [config]
-  (jdbc/with-db-transaction
-    [tx (:conn config)]
-    (db/clear-transaction-cache!)
-    (->> initial-debts
-         (t/add-debts tx))
-    (->> app-state
-         :transactions
-         (filter :credit-to)
-         (map #(t/process-transaction tx %))
-         doall)))
+  (let [app-state (load-state "data_store.json")
+        initial-debts (load-state "initial_debts.json")]
+    (jdbc/with-db-transaction
+      [tx (:conn config)]
+      (db/clear-transaction-cache!)
+      (->> initial-debts
+           (t/add-debts tx))
+      (->> app-state
+           :transactions
+           (filter :credit-to)
+           (map #(t/process-transaction tx %))
+           doall))))
